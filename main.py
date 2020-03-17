@@ -82,7 +82,30 @@ def get_initial_conditions(mask=None):
     return feq, rho, ux, uy
 
 
-def main(Nt=1000, tsave=100, debug=True):
+def calculate_macros(f):
+    # Calculate rho. This is the sum over the contents of each q (velocity vector)
+    rho = f.sum(axis=0)
+
+    # print(f"Found {rho.size - np.count_nonzero(rho)} zeros in ")
+
+    # plt.matshow(rho == 0)
+    # plt.show()
+
+    # The velocity is the mass-averaged velocity for each direction
+    # Ux is periodic if fp is also periodic, so we don't have to apply pbc
+    ux = np.zeros(rho.shape)
+    uy = np.zeros(rho.shape)
+    ux = np.divide((ex[:, None, None] * f).sum(axis=0), rho, out=ux, where=rho != 0)
+    uy = np.divide((ey[:, None, None] * f).sum(axis=0), rho, out=uy, where=rho != 0)
+
+    # Increment velocities in x-direction to mimic a constant pressure drop
+    ux += 0.0001
+    # ux[mask_boundary] = U_inf
+    # uy[mask_boundary] = 0
+    return rho, ux, uy
+
+
+def main(Nt=1_00, tsave=1, debug=True):
     # Initialize PDF
     feq, rho, ux, uy = get_initial_conditions(mask_obstacle)
     f = feq.copy()
@@ -112,22 +135,8 @@ def main(Nt=1000, tsave=100, debug=True):
         if periodic:
             fp = boundary.apply_periodic_boundary(fp)
 
-        # Calculate rho. This is the sum over the contents of each q (velocity vector)
-        rho = fp.sum(axis=0)
-
-        zeros = np.count_nonzero(fp < 0)
-        if zeros > 0:
-            print(f"Encountered {zeros} 0's at t={t}")
-
-        # The velocity is the mass-averaged velocity for each direction
-        # Ux is periodic if fp is also periodic, so we don't have to apply pbc
-        ux = (ex[:, None, None] * fp).sum(axis=0) / rho
-        uy = (ey[:, None, None] * fp).sum(axis=0) / rho
-
-        # Increment velocities in x-direction to mimic a constant pressure drop
-        ux += 0.0001
-        # ux[mask_boundary] = U_inf
-        # uy[mask_boundary] = 0
+        # Calculate macros
+        rho, ux, uy = calculate_macros(fp)
 
         # Calculate feq
         feq = equilibrium(rho, ux, uy)
