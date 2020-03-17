@@ -1,10 +1,10 @@
 import matplotlib.pyplot as plt
-from matplotlib import cm
+import matplotlib.cm
 
 
 def save_field_as_image(v, filename="output"):
     plt.clf()
-    plt.imshow(v.transpose(), cmap=cm.Blues)
+    plt.imshow(v.transpose(), cmap=matplotlib.cm.Blues)
     plt.colorbar()
     plt.savefig(f"output/{filename}.png")
 

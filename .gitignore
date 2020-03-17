@@ -1,2 +1,5 @@
 /venv/
 /output/*
+*.pyc
+.directory
+requirements.txt

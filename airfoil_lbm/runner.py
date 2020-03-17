@@ -1,10 +1,9 @@
-import numpy as np
-import boundary
-import boundary.obstacles
-import visualization
 import matplotlib.pyplot as plt
-from matplotlib import cm
-from numba import jit
+import numpy as np
+
+import mask.boundary
+import mask.obstacles
+import visualization
 
 # Flow constants
 maxIter = 100000  # amount of cycles
@@ -45,8 +44,9 @@ assert ex.sum() == 0
 assert ey.sum() == 0
 assert w.sum() == 1
 
-mask_boundary = boundary.get_boundary_mask(np.zeros(dims), inlet=False, outlet=False, top=True, bottom=True)
-mask_circle = boundary.obstacles.circle(np.zeros(dims))
+mask_boundary = mask.boundary.get_boundary_mask(
+    np.zeros(dims), inlet=False, outlet=False, top=True, bottom=True)
+mask_circle = mask.obstacles.circle(np.zeros(dims))
 
 plt.matshow(mask_circle)
 plt.show()
@@ -57,7 +57,8 @@ mask_obstacle = mask_boundary
 def equilibrium(rho, ux, uy):
     # Calculate feq
     evel = np.multiply.outer(ex, ux) + np.multiply.outer(ey, uy)
-    feq = np.multiply.outer(w, rho) * (1 + 3 * evel + 9 / 2 * evel ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
+    feq = np.multiply.outer(w, rho) * (1 + 3 * evel + 9 / 2 *
+                                       evel ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
     return feq
 
 
@@ -77,7 +78,7 @@ def get_initial_conditions(mask=None):
 
     feq = equilibrium(rho, ux, uy)
     if periodic:
-        feq = boundary.apply_periodic_boundary(feq)
+        feq = mask.boundary.apply_periodic_boundary(feq)
 
     return feq, rho, ux, uy
 
@@ -110,7 +111,7 @@ def main(Nt=1000, tsave=100, debug=True):
         for k in range(q):
             fp[k, :, :] = np.roll(np.roll(f[k, :, :], ey[k], axis=1), ex[k], axis=0)
         if periodic:
-            fp = boundary.apply_periodic_boundary(fp)
+            fp = mask.boundary.apply_periodic_boundary(fp)
 
         # Calculate rho. This is the sum over the contents of each q (velocity vector)
         rho = fp.sum(axis=0)
