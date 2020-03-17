@@ -37,7 +37,7 @@ class Naca:
     """
     RESOLUTION = 1000
     BOX_SIZE_MULT_VERT = 3
-    BOX_SIZE_MULT_HORI = 5
+    BOX_SIZE_MULT_HORI = 9
 
     # Divisor to shift the location of the center of the airfoil.
     # A divisor of 2 means the airfoil is position in the center.
@@ -45,18 +45,21 @@ class Naca:
     DIV_DOWN = 2
     DIV_AIRFOIL = 2
 
+    airfoil: np.ndarray
+    box: np.ndarray
+
     def __init__(self, airfoil_size, xy, angle):
         self.airfoil_size = airfoil_size
         self.xy = xy
         self.angle = angle
 
-        self.size_airfoil_x = self.airfoil_size + 1
-        self.size_airfoil_y = self.airfoil_size + 1
+        self.size_airfoil_x = self.airfoil_size
+        self.size_airfoil_y = self.airfoil_size
 
         self.create_airfoil()
 
-        self.size_box_x = self.BOX_SIZE_MULT_HORI*self.airfoil_size + 1
-        self.size_box_y = self.BOX_SIZE_MULT_VERT*self.airfoil_size + 1
+        self.size_box_x = self.BOX_SIZE_MULT_HORI*self.airfoil_size
+        self.size_box_y = self.BOX_SIZE_MULT_VERT*self.airfoil_size
 
         self.place_airfoil()
 
@@ -87,9 +90,9 @@ class Naca:
         self.box = np.zeros((self.size_box_x, self.size_box_y), dtype=bool)
 
         x_lower = self.size_box_x//self.DIV_LEFT - self.size_airfoil_x//self.DIV_AIRFOIL
-        x_upper = self.size_box_x//self.DIV_LEFT + self.size_airfoil_x//self.DIV_AIRFOIL + 1
+        x_upper = self.size_box_x//self.DIV_LEFT + self.size_airfoil_x//self.DIV_AIRFOIL
         y_lower = self.size_box_y//self.DIV_DOWN - self.size_airfoil_y//self.DIV_AIRFOIL
-        y_upper = self.size_box_y//self.DIV_DOWN + self.size_airfoil_y//self.DIV_AIRFOIL + 1
+        y_upper = self.size_box_y//self.DIV_DOWN + self.size_airfoil_y//self.DIV_AIRFOIL
 
         self.box[x_lower:x_upper, y_lower:y_upper] = self.airfoil
 
