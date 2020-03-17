@@ -39,6 +39,6 @@ def get_outlet_mask(domain):
 
 
 def get_boundary_mask(domain, inlet=True, outlet=True, top=True, bottom=True):
-    return (get_sides_mask(domain, top=top, bottom=bottom) \
-            + get_inlet_mask(domain) * inlet \
+    return (get_sides_mask(domain, top=top, bottom=bottom)
+            + get_inlet_mask(domain) * inlet
             + get_outlet_mask(domain) * outlet) > 0

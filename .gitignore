@@ -1,4 +1,5 @@
 /venv/
 /output/*
 *.pyc
-*.idea
+.directory
+.idea
