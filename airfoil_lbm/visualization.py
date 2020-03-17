@@ -4,16 +4,17 @@ import matplotlib.cm
 
 def save_field_as_image(v, filename="output"):
     plt.clf()
-    plt.imshow(v.transpose(), cmap=matplotlib.cm.Blues)
+    plt.imshow(v.transpose(), cmap=matplotlib.cm.inferno)
     plt.colorbar()
-    plt.savefig(f"output/{filename}.png")
+    plt.savefig(f"../output/{filename}.png")
 
 
-def show_field(v):
+def show_field(v, title=None):
     # f, (ax1) = plt.subplots(1, 1, figsize=(16, 6))
     ax = plt.matshow(v.T)
     plt.colorbar()
     # plt.clim(0, 2)
+    plt.title(title)
     plt.show()
 
 
