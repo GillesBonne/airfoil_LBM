@@ -110,7 +110,8 @@ def test_fields(f, feq, rho, ux, uy):
     print("Testing values outside the boundary")
 
     for (field, name) in [(u, "u"), (ux, "ux"), (uy, "uy")]:
-        print(f"{name:>3s}_max = {field[mask_object == False].max():>12.8f}, {name:>3s}_min = {field[mask_object == False].min():>12.8f}")
+        print((f"{name:>3s}_max = {field[~mask_object].max():>12.8f}, "
+               f"{name:>3s}_min = {field[~mask_object].min():>12.8f}"))
 
 
 def calculate_macros(f) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
