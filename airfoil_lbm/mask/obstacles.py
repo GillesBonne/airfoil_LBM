@@ -36,7 +36,7 @@ class Naca:
     """NACA airfoil.
     """
     RESOLUTION = 1000
-    BOX_SIZE_MULT_VERT = 3
+    BOX_SIZE_MULT_VERT = 2
     BOX_SIZE_MULT_HORI = 9
 
     # Divisor to shift the location of the center of the airfoil.

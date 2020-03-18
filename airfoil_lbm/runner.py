@@ -11,8 +11,8 @@ import visualization
 # Flow constants
 maxIter = 100000  # amount of cycles
 Re = 220  # Reynolds number
-Nx = 700  # Lattice points in x-direction
-Ny = 200  # Lattice points in y-direction
+Nx = 1800  # Lattice points in x-direction
+Ny = 400  # Lattice points in y-direction
 q = 9  # number of possible directions
 U = 0.04  # maximum velocity of Poiseuille flow
 U_inf = 0.09  # velocity at a distance far away from the airfoil such that the airfoil does not disturb the velocity there
@@ -57,10 +57,10 @@ assert w.sum() == 1
 mask_boundary = mask.boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-# AFOIL = mask.obstacles.Naca00xx(airfoil_size=100, angle=-45, thickness=0.1)
-# mask_object = AFOIL.box
+AFOIL = mask.obstacles.Naca00xx(airfoil_size=200, angle=-45, thickness=0.1)
+mask_object = AFOIL.box
 
-mask_object = mask.obstacles.circle(np.zeros(dims))
+# mask_object = mask.obstacles.circle(np.zeros(dims))
 
 plt.matshow(mask_object)
 plt.show()
