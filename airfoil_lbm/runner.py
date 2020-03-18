@@ -10,9 +10,9 @@ import visualization
 
 # Flow constants
 maxIter = 100000  # amount of cycles
-Re = 220  # Reynolds number
-Nx = 1800  # Lattice points in x-direction
-Ny = 400  # Lattice points in y-direction
+Re = 120  # Reynolds number
+Nx = 700  # Lattice points in x-direction
+Ny = 200  # Lattice points in y-direction
 q = 9  # number of possible directions
 U = 0.04  # maximum velocity of Poiseuille flow
 U_inf = 0.09  # velocity at a distance far away from the airfoil such that the airfoil does not disturb the velocity there
@@ -57,10 +57,10 @@ assert w.sum() == 1
 mask_boundary = mask.boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-AFOIL = mask.obstacles.Naca00xx(airfoil_size=200, angle=-45, thickness=0.1)
-mask_object = AFOIL.box
-
-# mask_object = mask.obstacles.circle(np.zeros(dims))
+# AFOIL = mask.obstacles.Naca00xx(airfoil_size=200, angle=-45, thickness=0.1)
+# mask_object = AFOIL.box
+#
+mask_object = mask.obstacles.circle(np.zeros(dims))
 
 plt.matshow(mask_object)
 plt.show()
@@ -192,6 +192,7 @@ def main(Nt=1_000_000, tsave=10, debug=True):
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
                                                     filename=f"vel/{t // tsave:08d}")
+            # visualization._show_streamlines(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle)
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
