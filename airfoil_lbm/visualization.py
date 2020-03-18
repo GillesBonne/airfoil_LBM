@@ -109,8 +109,8 @@ def _show_streamlines(vx, vy, v=None,
     :return:
     """
     if fig is None or ax is None:
-        plt.figure(dpi=1200)
-        # plt.clf()
+        # plt.figure(dpi=1200)
+        plt.clf()
         fig, ax = plt.subplots()
 
     if v is not None:
