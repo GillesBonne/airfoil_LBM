@@ -189,7 +189,9 @@ def main(Nt=1_000_000, tsave=10, debug=True):
 
             # Save velocity profile as an image
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
-            visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
+            visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
+                                                    filename=f"vel/{t // tsave:08d}")
+            # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
         # Make sure mass is conserved at every timestep. Due to floating point (in)accuracy, we do need to round
