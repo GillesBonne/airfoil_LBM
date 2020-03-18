@@ -11,23 +11,25 @@ import visualization
 # Flow constants
 maxIter = 100000  # amount of cycles
 Re = 220  # Reynolds number
-Nx = 900  # Lattice points in x-direction
-Ny = 300  # Lattice points in y-direction
+Nx = 700  # Lattice points in x-direction
+Ny = 200  # Lattice points in y-direction
 q = 9  # number of possible directions
 U = 0.04  # maximum velocity of Poiseuille flow
-U_inf = 0.04  # velocity at a distance far away from the airfoil such that the airfoil does not disturb the velocity there
+U_inf = 0.09  # velocity at a distance far away from the airfoil such that the airfoil does not disturb the velocity there
 obstacle_x = Nx / 4  # x location of the cylinder
 obstacle_y = Ny / 2  # y location of the cylinder
 obstacle_r = Ny / 9  # radius of the cylinder
-tau = 1.
-nu = (1.0 / 3.0) * (tau - 0.5)
-# nu = U * obstacle_r / Re  # kinematic viscosity
-# tau = 3. * (nu + 0.5)  # relaxation parameter
+# tau = 3
+# nu = (1.0 / 3.0) * (tau - 0.5)
+nu = U_inf * obstacle_r / Re  # kinematic viscosity
+tau = 3. * (nu + 0.5)  # relaxation parameter
 omega = tau ** -1
 
 print(f"# Parameters")
 print(f"tau = {tau:.2f}")
 print(f"omega = {omega:.2f}")
+print(f"Re = {Re:.2f}")
+print(f"U_inf = {U_inf:.2f}")
 print("\n")
 
 periodic_x = False
@@ -53,12 +55,12 @@ assert ey.sum() == 0
 assert w.sum() == 1
 
 mask_boundary = mask.boundary.get_boundary_mask(
-    np.zeros(dims), inlet=False, outlet=False, top=True, bottom=True)
+    np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-AFOIL = mask.obstacles.Naca00xx(airfoil_size=100, angle=-20, thickness=0.3)
-mask_object = AFOIL.box
+# AFOIL = mask.obstacles.Naca00xx(airfoil_size=100, angle=-45, thickness=0.1)
+# mask_object = AFOIL.box
 
-# mask_object = mask.obstacles.circle(np.zeros(dims))
+mask_object = mask.obstacles.circle(np.zeros(dims))
 
 plt.matshow(mask_object)
 plt.show()
@@ -186,7 +188,8 @@ def main(Nt=1_000_000, tsave=10, debug=True):
             m[it] = rho.sum()
 
             # Save velocity profile as an image
-            visualization.save_field_as_image(ux, filename=f"velx/{t:d}")
+            # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
+            visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
         # Make sure mass is conserved at every timestep. Due to floating point (in)accuracy, we do need to round
