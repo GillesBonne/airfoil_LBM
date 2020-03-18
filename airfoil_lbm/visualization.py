@@ -1,14 +1,24 @@
+import copy
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm
+import matplotlib.colors
 import subprocess
 import os
+
+palette: matplotlib.colors.LinearSegmentedColormap
+palette = copy.copy(matplotlib.cm.inferno)
+palette.set_bad('#666')
 
 
 def _plot_field(v, mask=None, title=None):
     plt.clf()
     fig, ax = plt.subplots()
 
-    im = ax.imshow(v.T, cmap=matplotlib.cm.inferno)
+    vprime = v.copy()
+    vprime[mask] = np.nan
+
+    im = ax.imshow(vprime.T, cmap=palette)
     fig.colorbar(im)
     # if not mask is None:
     # ax.matshow(mask, cmap=matplotlib.cm.Blues)
@@ -16,7 +26,7 @@ def _plot_field(v, mask=None, title=None):
 
 def save_field_as_image(v, mask=None, filename="output"):
     _plot_field(v, mask=mask, title=filename)
-    plt.savefig(f"../output/{filename}.png")
+    plt.savefig(f"../output/{filename}.png", dpi=300)
 
 
 def show_field(v, mask=None, title=None):
