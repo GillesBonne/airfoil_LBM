@@ -4,6 +4,7 @@
 import matplotlib.path
 import matplotlib.pyplot as plt
 import numpy as np
+import scipy.ndimage
 import scipy.spatial
 
 
@@ -96,6 +97,33 @@ class Naca:
 
         self.box[x_lower:x_upper, y_lower:y_upper] = self.airfoil
 
+    @property
+    def airfoil_directional_boundaries(self):
+        kernels = []
+        for i in range(9):
+            if i == 4:
+                continue
+            else:
+                kernel = np.zeros(9)
+                kernel[i] = 1
+                kernels.append(kernel.reshape(3, 3))
+        kernels = np.array(kernels, dtype=int)
+
+        directional_boundaries = []
+        for kernel in kernels:
+            airfoil_boundary = scipy.ndimage.convolve(
+                np.array(self.box, dtype=int), kernel, mode='constant')
+            airfoil_boundary[self.box] = 0
+            directional_boundaries.append(airfoil_boundary)
+        directional_boundaries = np.array(directional_boundaries)
+
+        return directional_boundaries
+
+    @property
+    def airfoil_boundary(self):
+        airfoil_boundary = np.sum(self.airfoil_directional_boundaries, axis=0)
+        return airfoil_boundary > 0
+
     def visualize_airfoil(self):
         """Outputs a visualization of the airfoil.
         """
@@ -106,6 +134,12 @@ class Naca:
         """Outputs a visualization of the airfoil inside the box.
         """
         plt.imshow(self.box.T, origin='lower')
+        plt.show()
+
+    def visualize_boundary(self):
+        """Outputs a visualization of the boundary of the airfoil inside the box.
+        """
+        plt.imshow(self.airfoil_boundary.T, origin='lower')
         plt.show()
 
 
@@ -129,6 +163,8 @@ class Naca00xx(Naca):
 
 if __name__ == '__main__':
 
-    AFOIL = Naca00xx(airfoil_size=200, angle=37, thickness=0.3)
+    AFOIL = Naca00xx(airfoil_size=100, angle=37, thickness=0.3)
 
-    AFOIL.visualize_box()
+    AFOIL.visualize_boundary()
+    # AFOIL.visualize_airfoil()
+    # AFOIL.visualize_box()
