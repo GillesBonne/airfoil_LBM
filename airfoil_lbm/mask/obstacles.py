@@ -43,7 +43,7 @@ class Shape:
     size_fraction = None
     size = None
 
-    def __init__(self, size_fraction=None, size=None):
+    def __init__(self, size_fraction=1., size=None):
         if size_fraction is None and size is None:
             raise ValueError("At least one of size_fraction, size should be set.")
         self.size_fraction = size_fraction
@@ -55,7 +55,8 @@ class Shape:
         else:
             return self.size
 
-    def get_center_for_domain(self, domain: np.ndarray):
+    @staticmethod
+    def get_center_for_domain(domain: np.ndarray):
         """
         Calculates the center of a domain
         :param domain:
@@ -63,13 +64,27 @@ class Shape:
         """
         return np.array(domain.shape) / 2.
 
-    def place_on_domain(self, domain: np.ndarray):
+    def place_on_subdomain(self, domain: np.ndarray):
         """
-        Places this shape on the domain
+        Places this shape in the center of the supplied (sub)domain
         :param domain: 2D numpy array of type np.bool
         :return: A copy of the domain, with this shape placed on it, centered horizontally and vertically
         """
         raise NotImplementedError("Classes inheriting from Shape should implement _place_on_domain")
+
+    def place_on_domain(self, domain, x_size, y_size, center_x=0.5, center_y=0.5):
+        center_x = int(domain.shape[0] * center_x)
+        center_y = int(domain.shape[1] * center_y)
+
+        y_start = center_y - y_size // 2
+        y_end = y_start + y_size
+
+        x_start = center_x - x_size // 2
+        x_end = x_start + x_size
+
+        subdomain = domain[x_start:x_end, y_start:y_end]
+        domain[x_start:x_end, y_start:y_end] = self.place_on_subdomain(subdomain)
+        return domain
 
     def get_distance_to_point(self, domain: np.ndarray, x):
         """
@@ -82,7 +97,7 @@ class Shape:
     def visualize(self, domain: np.ndarray = None):
         if domain is None:
             domain = np.zeros((1000, 1000), dtype=np.bool)
-        domain = self.place_on_domain(domain)
+        domain = self.place_on_subdomain(domain)
 
         plt.imshow(domain.T, origin='lower')
         plt.xlabel("x")
@@ -94,12 +109,12 @@ class Circle(Shape):
     def get_distance_to_point(self, domain: np.ndarray, x):
         return np.linalg.norm(x - self.get_center_for_domain(domain)) - self.get_size(domain) / 2
 
-    def place_on_domain(self, domain: np.ndarray):
+    def place_on_subdomain(self, domain: np.ndarray):
         Nx, Ny = domain.shape
         r = self.get_size(domain) / 2.
         x_center, y_center = self.get_center_for_domain(domain)
-        x = np.arange(Nx).reshape([Nx, 1])
-        y = np.arange(Ny)
+        x = np.arange(Nx).reshape([Nx, 1]) + 1
+        y = np.arange(Ny) + 1
         mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
         return mask
 
@@ -233,11 +248,13 @@ class Naca00xx(Naca):
 
 
 if __name__ == '__main__':
-    my_obstacle = Circle(size_fraction=0.5)
-    my_obstacle.visualize()
+    my_obstacle = Circle(size_fraction=1.)
+    mask = my_obstacle.place_on_domain(np.zeros((500, 200)), 100, 100, center_x=0.25)
+    plt.matshow(mask.T)
+    plt.show()
 
-    AFOIL = Naca00xx(airfoil_size=100, angle=37, thickness=0.3)
-
-    AFOIL.visualize_boundary()
+    # AFOIL = Naca00xx(airfoil_size=100, angle=37, thickness=0.3)
+    #
+    # AFOIL.visualize_boundary()
     # AFOIL.visualize_airfoil()
     # AFOIL.visualize_box()

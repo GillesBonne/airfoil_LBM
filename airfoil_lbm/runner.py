@@ -60,7 +60,8 @@ mask_boundary = mask.boundary.get_boundary_mask(
 # AFOIL = mask.obstacles.Naca00xx(airfoil_size=200, angle=-45, thickness=0.1)
 # mask_object = AFOIL.box
 #
-mask_object = mask.obstacles.circle(np.zeros(dims))
+shape = mask.obstacles.Circle()
+mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), x_size=Ny // 4, y_size=Ny // 4, center_x=0.2)
 
 plt.matshow(mask_object)
 plt.show()
