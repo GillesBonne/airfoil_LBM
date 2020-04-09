@@ -10,11 +10,11 @@ import scipy.spatial
 
 def circle(domain: np.ndarray):
     Nx, Ny = domain.shape
-    r = Ny/5
+    r = Ny / 5
     x_center, y_center = (Ny, 0)
     x = np.linspace(0, Nx, Nx).reshape([Nx, 1])
-    y = np.linspace(-Ny/2, Ny/2, Ny)
-    mask = ((x-x_center)**2 + (y-y_center)**2 < r**2)
+    y = np.linspace(-Ny / 2, Ny / 2, Ny)
+    mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
     return mask
 
 
@@ -31,6 +31,77 @@ def rotate_around_point(xy, radians, origin):
     qy = offset_y + -sin_rad * adjusted_x + cos_rad * adjusted_y
 
     return qx, qy
+
+
+class Shape:
+    """
+    Shape is a super-class for objects that can be placed in a simulation domain.
+    """
+
+    # The size of this shape can either be set as a fraction of the domain it is given,
+    # or as an absolute value.
+    size_fraction = None
+    size = None
+
+    def __init__(self, size_fraction=None, size=None):
+        if size_fraction is None and size is None:
+            raise ValueError("At least one of size_fraction, size should be set.")
+        self.size_fraction = size_fraction
+        self.size = size
+
+    def get_size(self, domain: np.ndarray):
+        if self.size_fraction is not None:
+            return min(domain.shape) * self.size_fraction
+        else:
+            return self.size
+
+    def get_center_for_domain(self, domain: np.ndarray):
+        """
+        Calculates the center of a domain
+        :param domain:
+        :return:
+        """
+        return np.array(domain.shape) / 2.
+
+    def place_on_domain(self, domain: np.ndarray):
+        """
+        Places this shape on the domain
+        :param domain: 2D numpy array of type np.bool
+        :return: A copy of the domain, with this shape placed on it, centered horizontally and vertically
+        """
+        raise NotImplementedError("Classes inheriting from Shape should implement _place_on_domain")
+
+    def get_distance_to_point(self, domain: np.ndarray, x):
+        """
+        Returns the closest distance to the edge of the shape, analytically.
+        :param x: A tuple containing the coordinates
+        :return: The closest distance to the shape
+        """
+        raise NotImplementedError("Classes inheriting from Shape should implement get_distance_to_point")
+
+    def visualize(self, domain: np.ndarray = None):
+        if domain is None:
+            domain = np.zeros((1000, 1000), dtype=np.bool)
+        domain = self.place_on_domain(domain)
+
+        plt.imshow(domain.T, origin='lower')
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.show()
+
+
+class Circle(Shape):
+    def get_distance_to_point(self, domain: np.ndarray, x):
+        return np.linalg.norm(x - self.get_center_for_domain(domain)) - self.get_size(domain) / 2
+
+    def place_on_domain(self, domain: np.ndarray):
+        Nx, Ny = domain.shape
+        r = self.get_size(domain) / 2.
+        x_center, y_center = self.get_center_for_domain(domain)
+        x = np.arange(Nx).reshape([Nx, 1])
+        y = np.arange(Ny)
+        mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
+        return mask
 
 
 class Naca:
@@ -59,8 +130,8 @@ class Naca:
 
         self.create_airfoil()
 
-        self.size_box_x = self.BOX_SIZE_MULT_HORI*self.airfoil_size
-        self.size_box_y = self.BOX_SIZE_MULT_VERT*self.airfoil_size
+        self.size_box_x = self.BOX_SIZE_MULT_HORI * self.airfoil_size
+        self.size_box_y = self.BOX_SIZE_MULT_VERT * self.airfoil_size
 
         self.place_airfoil()
 
@@ -90,10 +161,10 @@ class Naca:
         """
         self.box = np.zeros((self.size_box_x, self.size_box_y), dtype=bool)
 
-        x_lower = self.size_box_x//self.DIV_LEFT - self.size_airfoil_x//self.DIV_AIRFOIL
-        x_upper = self.size_box_x//self.DIV_LEFT + self.size_airfoil_x//self.DIV_AIRFOIL
-        y_lower = self.size_box_y//self.DIV_DOWN - self.size_airfoil_y//self.DIV_AIRFOIL
-        y_upper = self.size_box_y//self.DIV_DOWN + self.size_airfoil_y//self.DIV_AIRFOIL
+        x_lower = self.size_box_x // self.DIV_LEFT - self.size_airfoil_x // self.DIV_AIRFOIL
+        x_upper = self.size_box_x // self.DIV_LEFT + self.size_airfoil_x // self.DIV_AIRFOIL
+        y_lower = self.size_box_y // self.DIV_DOWN - self.size_airfoil_y // self.DIV_AIRFOIL
+        y_upper = self.size_box_y // self.DIV_DOWN + self.size_airfoil_y // self.DIV_AIRFOIL
 
         self.box[x_lower:x_upper, y_lower:y_upper] = self.airfoil
 
@@ -148,7 +219,7 @@ class Naca00xx(Naca):
     """
 
     def __init__(self, airfoil_size, angle, thickness):
-        x = np.linspace(0, 0.9906245881926358, self.RESOLUTION//2)
+        x = np.linspace(0, 0.9906245881926358, self.RESOLUTION // 2)
         y = 5 * thickness * (0.2926 * np.sqrt(x)
                              - 0.1260 * x
                              - 0.3516 * x ** 2
@@ -162,6 +233,8 @@ class Naca00xx(Naca):
 
 
 if __name__ == '__main__':
+    my_obstacle = Circle(size_fraction=0.5)
+    my_obstacle.visualize()
 
     AFOIL = Naca00xx(airfoil_size=100, angle=37, thickness=0.3)
 
