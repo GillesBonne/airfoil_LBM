@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numba
 
+import physics
 import mask.boundary
 import mask.obstacles
 import visualization
@@ -36,23 +37,12 @@ periodic_x = False
 periodic_y = False
 periodic = periodic_x or periodic_y
 
-ex = np.array([0, 1, 0, -1, 0, 1, -1, -1, 1])
-ey = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1])
-w = np.array([4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36]) * 1.0
-
-# Calculate the opposite vectors
-opp = []
-e = np.array([ex, ey]).T
-for i in range(ex.size):
-    opp.append(np.where(np.all(e == -e[i, :], axis=1))[0][0])
+e, ex, ey, w = physics.lattice.D2Q9()
+opp = physics.lattice.opp(e)
 
 dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
 els = dims[0] * dims[1]
 
-# Make sure we didn't make any typing errors
-assert ex.sum() == 0
-assert ey.sum() == 0
-assert w.sum() == 1
 
 mask_boundary = mask.boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
