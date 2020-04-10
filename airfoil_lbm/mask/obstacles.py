@@ -40,6 +40,11 @@ class Shape:
             self.size_fraction = size_fraction
 
     def get_size(self, domain: np.ndarray):
+        """
+        Calculate the size that this Shape should be when placing itself onto the domain
+        :param domain: A numpy array
+        :return: An integer value
+        """
         if self.size_fraction is not None:
             return min(domain.shape) * self.size_fraction
         else:
@@ -62,7 +67,18 @@ class Shape:
         """
         raise NotImplementedError("Classes inheriting from Shape should implement _place_on_domain")
 
+    @staticmethod
     def place_on_domain(self, domain, x_size, y_size, center_x=0.5, center_y=0.5):
+        """
+        Places this Shape in the domain, by first cutting out a small subdomain. This method will then
+        call the abstract method place_on_subdomain.
+        :param domain: 2D numpy array
+        :param x_size: The x size of the subdomain
+        :param y_size: The y size of the subdomain
+        :param center_x: The center x position of the subdomain, relative to the total x size
+        :param center_y: The center y position of the subdomain, relative to the total y size
+        :return: A copy of the domain, with this shape placed on it, centered at center_x, center_y
+        """
         center_x = int(domain.shape[0] * center_x)
         center_y = int(domain.shape[1] * center_y)
 
@@ -95,14 +111,22 @@ class Shape:
         plt.show()
 
     def directional_boundaries(self, domain, kernels, opp):
+        """
+        For each kernel, the  points outside this Shape placed in the supplied domain that would be taken
+        into this shape will be set to 1.
+        :param domain: A numpy array containing the fluid domain in which this Shape should be placed
+        :param kernels: The kernels to test for. Should be 2D arrays containing a single 1 value.
+        :param opp: An array containing the indices i' of the kernel that mirrors the kernel at index i
+        :return: A numpy array of shape (kernels.shape[0], *domain.shape)
+        """
         mask = self.place_on_subdomain(domain)
 
         directional_boundaries = np.zeros((kernels.shape[0], *domain.shape), dtype=int)
         for i, kernel in enumerate(kernels):
-            boundary = scipy.ndimage.convolve(
-                np.array(mask, dtype=int), kernel, mode='constant')
-            boundary[mask] = 0
-            directional_boundaries[opp[i], :, :] = boundary
+            # Set all points outside the mask to 1 if its kernel is inside the mask
+            directional_boundaries[opp[i], ~mask] = scipy.ndimage.convolve(np.array(mask, dtype=int),
+                                                                           kernel,
+                                                                           mode='constant')[~mask]
         return directional_boundaries
 
 
@@ -182,11 +206,11 @@ class AirfoilNaca00xx(Shape):
 if __name__ == '__main__':
     # A nice and illustrative example of kernels and neighbouring nodes for the D2Q9 implementation of choice
     # is a square object on a (7,7) lattice:
-    # domain_test = np.zeros((7, 7))
-    # my_obstacle = Square(size_fraction=0.5)
+    domain_test = np.zeros((7, 7))
+    my_obstacle = Square(size_fraction=0.5)
 
-    domain_test = np.zeros((400, 400))
-    my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
+    # domain_test = np.zeros((400, 400))
+    # my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
     my_obstacle.visualize()
 
     e, ex, ey, _ = physics.lattice.D2Q9()
