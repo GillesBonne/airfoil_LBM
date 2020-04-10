@@ -6,16 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
 import scipy.spatial
-
-
-def circle(domain: np.ndarray):
-    Nx, Ny = domain.shape
-    r = Ny / 5
-    x_center, y_center = (Ny, 0)
-    x = np.linspace(0, Nx, Nx).reshape([Nx, 1])
-    y = np.linspace(-Ny / 2, Ny / 2, Ny)
-    mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
-    return mask
+import physics
 
 
 def rotate_around_point(xy, radians, origin):
@@ -95,13 +86,24 @@ class Shape:
 
     def visualize(self, domain: np.ndarray = None):
         if domain is None:
-            domain = np.zeros((1000, 1000), dtype=np.bool)
+            domain = np.zeros((200, 200), dtype=np.bool)
         domain = self.place_on_subdomain(domain)
 
         plt.imshow(domain.T, origin='lower')
         plt.xlabel("x")
         plt.ylabel("y")
         plt.show()
+
+    def directional_boundaries(self, domain, kernels, opp):
+        mask = self.place_on_subdomain(domain)
+
+        directional_boundaries = np.zeros((kernels.shape[0], *domain.shape), dtype=int)
+        for i, kernel in enumerate(kernels):
+            boundary = scipy.ndimage.convolve(
+                np.array(mask, dtype=int), kernel, mode='constant')
+            boundary[mask] = 0
+            directional_boundaries[opp[i], :, :] = boundary
+        return directional_boundaries
 
 
 class Circle(Shape):
@@ -115,6 +117,20 @@ class Circle(Shape):
         x = np.arange(Nx).reshape([Nx, 1])
         y = np.arange(Ny)
         mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
+        return mask
+
+
+class Square(Shape):
+    def get_distance_to_point(self, domain: np.ndarray, x):
+        return np.linalg.norm(x - self.get_center_for_domain(domain)) - self.get_size(domain) / 2
+
+    def place_on_subdomain(self, domain: np.ndarray):
+        Nx, Ny = domain.shape
+        r = self.get_size(domain) / 2.
+        x_center, y_center = self.get_center_for_domain(domain)
+        x = np.arange(Nx).reshape([Nx, 1])
+        y = np.arange(Ny)
+        mask = (x > x_center - r) * (x < x_center + r) * (y > y_center - r) * (y < y_center + r)
         return mask
 
 
@@ -163,143 +179,27 @@ class AirfoilNaca00xx(Shape):
         pass
 
 
-class Naca:
-    """NACA airfoil.
-    """
-    RESOLUTION = 1000
-    BOX_SIZE_MULT_VERT = 2
-    BOX_SIZE_MULT_HORI = 9
-
-    # Divisor to shift the location of the center of the airfoil.
-    # A divisor of 2 means the airfoil is position in the center.
-    DIV_LEFT = 5
-    DIV_DOWN = 2
-    DIV_AIRFOIL = 2
-
-    airfoil: np.ndarray
-    box: np.ndarray
-
-    def __init__(self, airfoil_size, xy, angle):
-        self.airfoil_size = airfoil_size
-        self.xy = xy
-        self.angle = angle
-
-        self.size_airfoil_x = self.airfoil_size
-        self.size_airfoil_y = self.airfoil_size
-
-        self.create_airfoil()
-
-        self.size_box_x = self.BOX_SIZE_MULT_HORI * self.airfoil_size
-        self.size_box_y = self.BOX_SIZE_MULT_VERT * self.airfoil_size
-
-        self.place_airfoil()
-
-    def create_airfoil(self):
-        """Creates the airfoil.
-        """
-        x, y = rotate_around_point(xy=self.xy, radians=np.deg2rad(self.angle), origin=(0.5, 0))
-
-        # Translate to [0,1], then scale to the size of the airfoil.
-        x = self.airfoil_size * x
-        y = self.airfoil_size * (y + 0.5)
-
-        # Create hull.
-        xy_stacked = np.column_stack((x, y))
-        hull = scipy.spatial.ConvexHull(xy_stacked)
-
-        # Map hull onto a boolean array.
-        path = matplotlib.path.Path(xy_stacked[hull.vertices])
-        x, y = np.meshgrid(np.arange(self.size_airfoil_x), np.arange(self.size_airfoil_y))
-        x, y = x.flatten(), y.flatten()
-        points = np.vstack((y, x)).T
-        self.airfoil = path.contains_points(points)
-        self.airfoil = self.airfoil.reshape((self.size_airfoil_y, self.size_airfoil_x))
-
-    def place_airfoil(self):
-        """Places the airfoil inside the box.
-        """
-        self.box = np.zeros((self.size_box_x, self.size_box_y), dtype=bool)
-
-        x_lower = self.size_box_x // self.DIV_LEFT - self.size_airfoil_x // self.DIV_AIRFOIL
-        x_upper = self.size_box_x // self.DIV_LEFT + self.size_airfoil_x // self.DIV_AIRFOIL
-        y_lower = self.size_box_y // self.DIV_DOWN - self.size_airfoil_y // self.DIV_AIRFOIL
-        y_upper = self.size_box_y // self.DIV_DOWN + self.size_airfoil_y // self.DIV_AIRFOIL
-
-        self.box[x_lower:x_upper, y_lower:y_upper] = self.airfoil
-
-    @property
-    def airfoil_directional_boundaries(self):
-        kernels = []
-        for i in range(9):
-            if i == 4:
-                continue
-            else:
-                kernel = np.zeros(9)
-                kernel[i] = 1
-                kernels.append(kernel.reshape(3, 3))
-        kernels = np.array(kernels, dtype=int)
-
-        directional_boundaries = []
-        for kernel in kernels:
-            airfoil_boundary = scipy.ndimage.convolve(
-                np.array(self.box, dtype=int), kernel, mode='constant')
-            airfoil_boundary[self.box] = 0
-            directional_boundaries.append(airfoil_boundary)
-        directional_boundaries = np.array(directional_boundaries)
-
-        return directional_boundaries
-
-    @property
-    def airfoil_boundary(self):
-        airfoil_boundary = np.sum(self.airfoil_directional_boundaries, axis=0)
-        return airfoil_boundary > 0
-
-    def visualize_airfoil(self):
-        """Outputs a visualization of the airfoil.
-        """
-        plt.imshow(self.airfoil.T, origin='lower')
-        plt.show()
-
-    def visualize_box(self):
-        """Outputs a visualization of the airfoil inside the box.
-        """
-        plt.imshow(self.box.T, origin='lower')
-        plt.show()
-
-    def visualize_boundary(self):
-        """Outputs a visualization of the boundary of the airfoil inside the box.
-        """
-        plt.imshow(self.airfoil_boundary.T, origin='lower')
-        plt.show()
-
-
-class Naca00xx(Naca):
-    """Symmetrical 4-digit NACA airfoil.
-    """
-
-    def __init__(self, airfoil_size, angle, thickness):
-        x = np.linspace(0, 0.9906245881926358, self.RESOLUTION // 2)
-        y = 5 * thickness * (0.2926 * np.sqrt(x)
-                             - 0.1260 * x
-                             - 0.3516 * x ** 2
-                             + 0.2843 * x ** 3
-                             - 0.1015 * x ** 4)
-
-        x = np.concatenate([x, np.flip(x)])
-        y = np.concatenate([y, np.flip(-y)])
-
-        super().__init__(airfoil_size, (x, y), angle)
-
-
 if __name__ == '__main__':
-    my_obstacle = AirfoilNaca00xx(angle=-30, thickness=0.1)
-    # my_obstacle.visualize()
-    mask = my_obstacle.place_on_domain(np.zeros((200, 200)), 200, 200, center_x=0.5)
-    plt.matshow(mask.T)
-    plt.show()
+    # A nice and illustrative example of kernels and neighbouring nodes for the D2Q9 implementation of choice
+    # is a square object on a (7,7) lattice:
+    # domain_test = np.zeros((7, 7))
+    # my_obstacle = Square(size_fraction=0.5)
 
-    # AFOIL = Naca00xx(airfoil_size=100, angle=37, thickness=0.3)
-    #
-    # AFOIL.visualize_boundary()
-    # AFOIL.visualize_airfoil()
-    # AFOIL.visualize_box()
+    domain_test = np.zeros((400, 400))
+    my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
+    my_obstacle.visualize()
+
+    e, ex, ey, _ = physics.lattice.D2Q9()
+    opp = physics.lattice.opp(e)
+    kernels = physics.lattice.get_kernels(ex, ey)
+
+    kernelind = 7
+    print(f"Showing neighbouring nodes for (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
+
+    plt.matshow(kernels[kernelind, :, :].T, origin='lower')
+    plt.show()
+    mask = my_obstacle.place_on_subdomain(domain_test.copy())
+
+    kernel_nodes = my_obstacle.directional_boundaries(domain_test.copy(), kernels, opp)
+    plt.matshow((mask * 2 + kernel_nodes[kernelind, :, :]).T, origin='lower')
+    plt.show()
