@@ -44,10 +44,9 @@ class Shape:
     size = None
 
     def __init__(self, size_fraction=1., size=None):
-        if size_fraction is None and size is None:
-            raise ValueError("At least one of size_fraction, size should be set.")
-        self.size_fraction = size_fraction
         self.size = size
+        if size is None:
+            self.size_fraction = size_fraction
 
     def get_size(self, domain: np.ndarray):
         if self.size_fraction is not None:
@@ -62,7 +61,7 @@ class Shape:
         :param domain:
         :return:
         """
-        return np.array(domain.shape) / 2.
+        return (np.array(domain.shape) - 1) / 2.
 
     def place_on_subdomain(self, domain: np.ndarray):
         """
@@ -113,10 +112,55 @@ class Circle(Shape):
         Nx, Ny = domain.shape
         r = self.get_size(domain) / 2.
         x_center, y_center = self.get_center_for_domain(domain)
-        x = np.arange(Nx).reshape([Nx, 1]) + 1
-        y = np.arange(Ny) + 1
+        x = np.arange(Nx).reshape([Nx, 1])
+        y = np.arange(Ny)
         mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
         return mask
+
+
+class AirfoilNaca00xx(Shape):
+    def __init__(self, angle, thickness, *args):
+        super().__init__(*args)
+        self.angle = angle
+        self.thickness = thickness
+
+    def place_on_subdomain(self, domain: np.ndarray):
+        # Create points on the edge of the airfoil
+        x = np.linspace(0, 0.9906245881926358, max(domain.shape) * 10)
+        y = 5 * self.thickness * (0.2926 * np.sqrt(x)
+                                  - 0.1260 * x
+                                  - 0.3516 * x ** 2
+                                  + 0.2843 * x ** 3
+                                  - 0.1015 * x ** 4)
+
+        # Create the bottom half by flipping the top half
+        x = np.concatenate([x, np.flip(x)])
+        y = np.concatenate([y, np.flip(-y)])
+
+        # Rotate to the desired angle of attach
+        x, y = rotate_around_point(xy=(x, y), radians=np.deg2rad(self.angle), origin=(0.5, 0))
+
+        # Scale from [0, 1]x[-thickness,thickness] to [0, size] where size is defined in Shape
+        size = self.get_size(domain)
+        x = x * size
+        y = y * size + self.get_center_for_domain(domain)[1]
+
+        # Create hull.
+        xy_stacked = np.column_stack((x, y))
+        hull = scipy.spatial.ConvexHull(xy_stacked)
+
+        # Map hull onto a boolean array.
+        path = matplotlib.path.Path(xy_stacked[hull.vertices])
+        x, y = np.meshgrid(np.arange(domain.shape[0]), np.arange(domain.shape[1]))
+        x, y = x.flatten(), y.flatten()
+        points = np.vstack((y, x)).T
+        mask = path.contains_points(points)
+        mask = mask.reshape(domain.shape)
+
+        return mask
+
+    def get_distance_to_point(self, domain: np.ndarray, x):
+        pass
 
 
 class Naca:
@@ -248,8 +292,9 @@ class Naca00xx(Naca):
 
 
 if __name__ == '__main__':
-    my_obstacle = Circle(size_fraction=1.)
-    mask = my_obstacle.place_on_domain(np.zeros((500, 200)), 100, 100, center_x=0.25)
+    my_obstacle = AirfoilNaca00xx(angle=-30, thickness=0.1)
+    # my_obstacle.visualize()
+    mask = my_obstacle.place_on_domain(np.zeros((200, 200)), 200, 200, center_x=0.5)
     plt.matshow(mask.T)
     plt.show()
 
