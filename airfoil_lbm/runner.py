@@ -14,12 +14,19 @@ maxIter = 100000  # amount of cycles
 Re = 120  # Reynolds number
 Nx = 700  # Lattice points in x-direction
 Ny = 200  # Lattice points in y-direction
-q = 9  # number of possible directions
-U = 0.04  # maximum velocity of Poiseuille flow
-U_inf = 0.09  # velocity at a distance far away from the airfoil such that the airfoil does not disturb the velocity there
-obstacle_x = Nx / 4  # x location of the cylinder
-obstacle_y = Ny / 2  # y location of the cylinder
-obstacle_r = Ny / 9  # radius of the cylinder
+U_inf = 0.09  # velocity at a distance far away from the airfoil
+
+# Get lattice parameters
+q, e, opp, ex, ey, w = physics.lattice.D2Q9()
+
+# Obstacle information
+
+obstacle_r = Ny // 2  # radius of the cylinder
+my_domain_params = {'x_size': obstacle_r,
+                    'y_size': obstacle_r,
+                    'x_center': 0.2,
+                    'y_center': 0.5}
+
 # tau = 3
 # nu = (1.0 / 3.0) * (tau - 0.5)
 nu = U_inf * obstacle_r / Re  # kinematic viscosity
@@ -37,19 +44,14 @@ periodic_x = False
 periodic_y = False
 periodic = periodic_x or periodic_y
 
-e, ex, ey, w = physics.lattice.D2Q9()
-opp = physics.lattice.opp(e)
 
 dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
-els = dims[0] * dims[1]
-
 
 mask_boundary = mask.boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-
 shape = mask.obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
-mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), x_size=Ny // 2, y_size=Ny // 2, center_x=0.2)
+mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
 
 plt.matshow(mask_object)
 plt.show()
