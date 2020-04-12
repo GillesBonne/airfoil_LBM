@@ -2,3 +2,4 @@ numpy
 matplotlib==3.2.0
 numba
 scipy
+shapely==1.7.0

@@ -7,6 +7,8 @@ import numpy as np
 import scipy.ndimage
 import scipy.spatial
 import physics
+import shapely.affinity
+import shapely.geometry
 
 
 def rotate_around_point(xy, radians, origin):
@@ -59,15 +61,35 @@ class Shape:
         """
         return (np.array(domain.shape) - 1) / 2.
 
+    def get_shape_geometry(self, domain: np.ndarray) -> shapely.geometry.base.BaseGeometry:
+        """
+        Creates a shapely shape, e.g. by creating a polygon by sequential [x,y] vertices that describes the edge of this
+         Shape.
+        :param domain: The domain this shape should be placed on
+        :return: a BaseGeometry subclass
+        """
+        raise NotImplementedError("Classes inheriting from Shape should implement _place_on_domain")
+
     def place_on_subdomain(self, domain: np.ndarray):
         """
         Places this shape in the center of the supplied (sub)domain
         :param domain: 2D numpy array of type np.bool
         :return: A copy of the domain, with this shape placed on it, centered horizontally and vertically
         """
-        raise NotImplementedError("Classes inheriting from Shape should implement _place_on_domain")
+        geometry = self.get_shape_geometry(domain)
+        xy_stacked = np.array(geometry.boundary.xy).T
+        hull = scipy.spatial.ConvexHull(xy_stacked)
 
-    @staticmethod
+        # Map hull onto a boolean array.
+        path = matplotlib.path.Path(xy_stacked[hull.vertices])
+        x, y = np.meshgrid(np.arange(domain.shape[0]), np.arange(domain.shape[1]))
+        x, y = x.flatten(), y.flatten()
+        points = np.vstack((y, x)).T
+        mask = path.contains_points(points)
+        mask = mask.reshape(domain.shape)
+
+        return mask
+
     def place_on_domain(self, domain, x_size, y_size, center_x=0.5, center_y=0.5):
         """
         Places this Shape in the domain, by first cutting out a small subdomain. This method will then
@@ -92,13 +114,37 @@ class Shape:
         domain[x_start:x_end, y_start:y_end] = self.place_on_subdomain(subdomain)
         return domain
 
-    def get_distance_to_point(self, domain: np.ndarray, x):
+    def get_kernel_ratios(self, domain: np.ndarray, e, kernels) -> np.ndarray:
         """
-        Returns the closest distance to the edge of the shape, analytically.
-        :param x: A tuple containing the coordinates
+        Returns the ratio of the distance along a kernel direction for which it intersects with this Shape
+        :param kernels:
+        :param domain:
         :return: The closest distance to the shape
         """
-        raise NotImplementedError("Classes inheriting from Shape should implement get_distance_to_point")
+        polygon = self.get_shape_geometry(domain)
+
+        kernel_nodes = my_obstacle.directional_boundaries(domain_test.copy(), kernels, opp)
+
+        # Fill q with NaN values and only replace the value when the kernel convolution is nonzero
+        q = np.ones((kernels.shape[0], *domain.shape)) * np.nan
+
+        # Loop through all kernels / displacement vectors
+        for i, e_i in enumerate(e):
+            nodes = kernel_nodes[i]
+
+            # Loop through all coordinates where this kernel has a 1
+            for xy1 in np.transpose(np.nonzero(nodes)):
+                # Create a line between that coordinate, and the coordinate inside the shape along e_i
+                x1, y1 = xy1
+                xy2 = xy1 + e_i
+                line = shapely.geometry.LineString([xy1, xy2])
+
+                # Intersect that line with the polygon that is this Shape
+                intersection = line.intersection(polygon)
+                xy3 = np.array(intersection.coords.xy)[:, 0]
+                # Calculate the q value
+                q[i, x1, y1] = np.linalg.norm(xy3 - xy1) / np.linalg.norm(e_i)
+        return q
 
     def visualize(self, domain: np.ndarray = None):
         if domain is None:
@@ -119,6 +165,8 @@ class Shape:
         :param opp: An array containing the indices i' of the kernel that mirrors the kernel at index i
         :return: A numpy array of shape (kernels.shape[0], *domain.shape)
         """
+        # TODO: Place on domain instead of subdomain. Should probably make a function that cuts and translates subdomain
+        #  out of domain
         mask = self.place_on_subdomain(domain)
 
         directional_boundaries = np.zeros((kernels.shape[0], *domain.shape), dtype=int)
@@ -131,31 +179,23 @@ class Shape:
 
 
 class Circle(Shape):
-    def get_distance_to_point(self, domain: np.ndarray, x):
-        return np.linalg.norm(x - self.get_center_for_domain(domain)) - self.get_size(domain) / 2
-
-    def place_on_subdomain(self, domain: np.ndarray):
-        Nx, Ny = domain.shape
+    def get_shape_geometry(self, domain: np.ndarray) -> shapely.geometry.base.BaseGeometry:
         r = self.get_size(domain) / 2.
         x_center, y_center = self.get_center_for_domain(domain)
-        x = np.arange(Nx).reshape([Nx, 1])
-        y = np.arange(Ny)
-        mask = ((x - x_center) ** 2 + (y - y_center) ** 2 < r ** 2)
-        return mask
+        point = shapely.geometry.Point(x_center, y_center).buffer(1)
+        return shapely.affinity.scale(point, r, r)
 
 
 class Square(Shape):
-    def get_distance_to_point(self, domain: np.ndarray, x):
-        return np.linalg.norm(x - self.get_center_for_domain(domain)) - self.get_size(domain) / 2
-
-    def place_on_subdomain(self, domain: np.ndarray):
-        Nx, Ny = domain.shape
+    def get_shape_geometry(self, domain: np.ndarray):
         r = self.get_size(domain) / 2.
         x_center, y_center = self.get_center_for_domain(domain)
-        x = np.arange(Nx).reshape([Nx, 1])
-        y = np.arange(Ny)
-        mask = (x > x_center - r) * (x < x_center + r) * (y > y_center - r) * (y < y_center + r)
-        return mask
+        return shapely.geometry.Polygon((
+            (x_center - r, y_center - r),
+            (x_center - r, y_center + r),
+            (x_center + r, y_center + r),
+            (x_center + r, y_center - r)
+        ))
 
 
 class AirfoilNaca00xx(Shape):
@@ -164,9 +204,9 @@ class AirfoilNaca00xx(Shape):
         self.angle = angle
         self.thickness = thickness
 
-    def place_on_subdomain(self, domain: np.ndarray):
+    def get_shape_geometry(self, domain: np.ndarray):
         # Create points on the edge of the airfoil
-        x = np.linspace(0, 0.9906245881926358, max(domain.shape) * 10)
+        x = np.linspace(0, 0.9906245881926358, max(domain.shape) * 100)
         y = 5 * self.thickness * (0.2926 * np.sqrt(x)
                                   - 0.1260 * x
                                   - 0.3516 * x ** 2
@@ -185,42 +225,40 @@ class AirfoilNaca00xx(Shape):
         x = x * size
         y = y * size + self.get_center_for_domain(domain)[1]
 
-        # Create hull.
-        xy_stacked = np.column_stack((x, y))
-        hull = scipy.spatial.ConvexHull(xy_stacked)
-
-        # Map hull onto a boolean array.
-        path = matplotlib.path.Path(xy_stacked[hull.vertices])
-        x, y = np.meshgrid(np.arange(domain.shape[0]), np.arange(domain.shape[1]))
-        x, y = x.flatten(), y.flatten()
-        points = np.vstack((y, x)).T
-        mask = path.contains_points(points)
-        mask = mask.reshape(domain.shape)
-
-        return mask
-
-    def get_distance_to_point(self, domain: np.ndarray, x):
-        pass
+        xy = np.column_stack((x, y))
+        return shapely.geometry.Polygon(xy)
 
 
 if __name__ == '__main__':
     # A nice and illustrative example of kernels and neighbouring nodes for the D2Q9 implementation of choice
     # is a square object on a (7,7) lattice:
-    domain_test = np.zeros((7, 7))
-    my_obstacle = Square(size_fraction=0.5)
+    # domain_test = np.zeros((8, 8))
+    # my_obstacle = Square(size_fraction=0.5)
 
-    # domain_test = np.zeros((400, 400))
-    # my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
+    domain_test = np.zeros((100, 100))
+    my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
     my_obstacle.visualize()
 
+    # Get lattice parameters
     e, ex, ey, _ = physics.lattice.D2Q9()
     opp = physics.lattice.opp(e)
     kernels = physics.lattice.get_kernels(ex, ey)
 
-    kernelind = 7
+    # Get the q factors from the obstacle for this set of kernels
+    q = my_obstacle.get_kernel_ratios(domain_test, e, kernels)
+
+    # Show neighbouring nodes and q-factors for one kernel
+    kernelind = 1
+
+    plt.matshow(q[kernelind, :, :].T, origin='lower')
+    plt.title(f"q for kernel {kernelind}, (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
+    plt.colorbar()
+    plt.show()
+
     print(f"Showing neighbouring nodes for (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
 
     plt.matshow(kernels[kernelind, :, :].T, origin='lower')
+    plt.title(f"Kernel {kernelind}, (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
     plt.show()
     mask = my_obstacle.place_on_subdomain(domain_test.copy())
 
