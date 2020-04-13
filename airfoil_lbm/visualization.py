@@ -120,8 +120,6 @@ def _show_streamlines(vx, vy, v=None,
     yvalues = np.arange(vx.shape[0])
     Y, X = np.meshgrid(xvalues, yvalues)
 
-    print(Y.shape, v.shape)
-
     linewidth = np.ones(v.shape).T * 0.5
 
     stream_container = ax.streamplot(X.T, Y.T, vx.T, vy.T,
