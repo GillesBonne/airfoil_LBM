@@ -91,34 +91,40 @@ class Shape:
         return mask
 
     @staticmethod
-    def get_subdomain_indices(domain, x_size, y_size, center_x=0.5, center_y=0.5):
-        center_x = int(domain.shape[0] * center_x)
-        center_y = int(domain.shape[1] * center_y)
+    def get_subdomain_indices(domain_shape, x_size, y_size, x_center=0.5, y_center=0.5):
+        x_center = int(domain_shape[0] * x_center)
+        y_center = int(domain_shape[1] * y_center)
 
-        y_start = center_y - y_size // 2
+        y_start = y_center - y_size // 2
         y_end = y_start + y_size
 
-        x_start = center_x - x_size // 2
+        x_start = x_center - x_size // 2
         x_end = x_start + x_size
 
-        if x_start < 0 or y_start < 0 or x_start >= domain.shape[0] or y_start >= domain.shape[1]:
-            raise ValueError("The values of x_size, y_size, center_x and center_y are such that the subdomain would be "
+        if x_start < 0 or y_start < 0 or x_start >= domain_shape[0] or y_start >= domain_shape[1]:
+            raise ValueError("The values of x_size, y_size, x_center and y_center are such that the subdomain would be "
                              "outisde of the domain")
         return np.arange(x_start, x_end)[:, None], np.arange(y_start, y_end)
 
     def get_subdomain_from_domain(self, domain, x_size, y_size, x_center, y_center):
-        x_ind, y_ind = self.get_subdomain_indices(domain, x_size, y_size, x_center, y_center)
+        x_ind, y_ind = self.get_subdomain_indices(domain.shape, x_size, y_size, x_center, y_center)
 
         return domain[x_ind, y_ind]
 
     def fill_domain_from_subdomain(self,
                                    subdomain: np.ndarray,
                                    domain_shape,
-                                   x_size, y_size, center_x, center_y,
+                                   x_size, y_size, x_center, y_center,
                                    fill_value=0):
-        domain = np.ones(domain_shape, subdomain.dtype) * fill_value
-        x_ind, y_ind = self.get_subdomain_indices(domain, x_size, y_size, center_x, center_y)
-        domain[x_ind, y_ind] = subdomain
+        domain = (np.ones(domain_shape, dtype=subdomain.dtype) * fill_value).astype(subdomain.dtype)
+        x_ind, y_ind = self.get_subdomain_indices(domain.shape[-2:], x_size, y_size, x_center, y_center)
+
+        if len(domain.shape) == 2:
+            domain[x_ind, y_ind] = subdomain
+        elif len(domain.shape) == 3:
+            domain[:, x_ind, y_ind] = subdomain
+        else:
+            raise ValueError("Domain is not in a shape that can be used by this function")
         return domain
 
     def place_on_domain(self, domain, x_size, y_size, x_center=0.5, y_center=0.5):
@@ -130,9 +136,9 @@ class Shape:
         :param y_size: The y size of the subdomain
         :param x_center: The center x position of the subdomain, relative to the total x size
         :param y_center: The center y position of the subdomain, relative to the total y size
-        :return: A copy of the domain, with this shape placed on it, centered at center_x, center_y
+        :return: A copy of the domain, with this shape placed on it, centered at x_center, y_center
         """
-        x_ind, y_ind = self.get_subdomain_indices(domain, x_size, y_size, x_center, y_center)
+        x_ind, y_ind = self.get_subdomain_indices(domain.shape, x_size, y_size, x_center, y_center)
 
         subdomain = domain[x_ind, y_ind]
         domain[x_ind, y_ind] = self.place_on_subdomain(subdomain)
@@ -152,7 +158,7 @@ class Shape:
         polygon = self.get_shape_geometry(subdomain)
 
         if kernel_nodes is None:
-            kernel_nodes = my_obstacle.directional_boundaries(subdomain.copy(), kernels, opp)
+            kernel_nodes = my_obstacle.directional_boundaries(subdomain.copy(), kernels, e, opp)
 
         # Fill q with NaN values and only replace the value when the kernel convolution is nonzero
         q = np.ones((kernels.shape[0], *subdomain.shape)) * np.nan
@@ -170,6 +176,7 @@ class Shape:
 
                 # Intersect that line with the polygon that is this Shape
                 intersection = line.intersection(polygon)
+                assert not intersection.is_empty
                 xy3 = np.array(intersection.coords.xy)[:, 0]
                 # Calculate the q value
                 q[i, x1, y1] = np.linalg.norm(xy3 - xy1) / np.linalg.norm(e_i)
@@ -185,7 +192,7 @@ class Shape:
         plt.ylabel("y")
         plt.show()
 
-    def directional_boundaries(self, subdomain, kernels, opp):
+    def directional_boundaries(self, subdomain, kernels, e, opp):
         """
         For each kernel, the  points outside this Shape placed in the supplied domain that would be taken
         into this shape will be set to 1.
@@ -194,14 +201,16 @@ class Shape:
         :param opp: An array containing the indices i' of the kernel that mirrors the kernel at index i
         :return: A numpy array of shape (kernels.shape[0], *domain.shape)
         """
+        ex, ey = e.T
         mask = self.place_on_subdomain(subdomain)
 
-        directional_boundaries = np.zeros((kernels.shape[0], *subdomain.shape), dtype=int)
-        for i, kernel in enumerate(kernels):
+        directional_boundaries = np.zeros((kernels.shape[0], *subdomain.shape), dtype=np.bool)
+        for i , kernel in enumerate(kernels):
             # Set all points outside the mask to 1 if its kernel is inside the mask
-            directional_boundaries[opp[i], ~mask] = scipy.ndimage.convolve(np.array(mask, dtype=int),
-                                                                           kernel,
-                                                                           mode='constant')[~mask]
+            # directional_boundaries[opp[i], ~mask] = scipy.ndimage.convolve(np.array(mask, dtype=np.bool),
+            #                                                                kernel,
+            #                                                                mode='constant')[~mask]
+            directional_boundaries[i, ~mask] = np.roll(mask, (-ey[i], -ex[i]), axis=(1, 0))[~mask]
         return directional_boundaries
 
 
@@ -270,21 +279,22 @@ if __name__ == '__main__':
 
     # A nice and illustrative example of kernels and neighbouring nodes for the D2Q9 implementation of choice
     # is a square object on a (7,7) lattice:
-    # domain_test = np.zeros((8, 8))
-    # my_obstacle = Square(size_fraction=0.5)
-    my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
-    my_obstacle.visualize()
+    domain_test = np.zeros((8, 8))
+    my_obstacle = Circle(size_fraction=0.5)
+    # my_obstacle = AirfoilNaca00xx(angle=-45, thickness=0.1)
+    # my_obstacle.visualize()
 
     my_subdomain = my_obstacle.get_subdomain_from_domain(**my_domain_params)
 
     my_mask = my_obstacle.place_on_subdomain(my_subdomain.copy())
 
-    my_kernel_nodes = my_obstacle.directional_boundaries(my_subdomain.copy(), my_kernels, opp)
+    my_kernel_nodes = my_obstacle.directional_boundaries(my_subdomain.copy(), my_kernels, e, opp)
+
     # Get the q factors from the obstacle for this set of kernels
     my_q = my_obstacle.get_kernel_ratios(my_subdomain.copy(), e, my_kernels, my_kernel_nodes)
 
     # Show neighbouring nodes and q-factors for one kernel
-    kernelind = 1
+    kernelind = 5
 
     plt.matshow(my_q[kernelind, :, :].T, origin='lower')
     plt.title(f"q for kernel {kernelind}, (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
