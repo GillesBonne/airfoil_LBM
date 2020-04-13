@@ -54,11 +54,11 @@ mask_boundary = mask.boundary.get_boundary_mask(
 shape = mask.obstacles.Circle(size_fraction=0.9)
 mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
 
-kernels = physics.lattice.get_kernels_for(lattice_configuration)
 subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
 
-x = physics.boundary.prepare_bounceback_interpolated(e, opp, shape, subdomain, kernels)
-x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params) for a in x]
+x_mask, x_minus_ck_mask, q_mask = physics.boundary.prepare_bounceback_interpolated(e, opp, shape, subdomain)
+x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
+                                   for a in (x_mask, x_minus_ck_mask, q_mask)]
 
 plt.matshow(mask_object.T)
 plt.title("Object mask")

@@ -57,7 +57,7 @@ def bounce_back(field, mask, opp):
 
 
 def prepare_bounceback_interpolated(e, opp, shape: mask.obstacles.Shape,
-                                    subdomain, kernels):
+                                    subdomain):
     """
     Preparation for bounce_back_interpolated
     :param e:
@@ -69,10 +69,10 @@ def prepare_bounceback_interpolated(e, opp, shape: mask.obstacles.Shape,
     """
     ex, ey = e.T
 
-    x_mask = shape.directional_boundaries(subdomain, kernels, e, opp)
+    x_mask = shape.directional_boundaries(subdomain, e, opp)
 
     # Get the q factors from the obstacle for this set of kernels
-    q = shape.get_kernel_ratios(subdomain, e, kernels, x_mask)
+    q = shape.get_kernel_ratios(subdomain, e, x_mask)
 
     x_minus_ck_mask = np.zeros(x_mask.shape, dtype=np.bool)
     for k in range(ex.size):

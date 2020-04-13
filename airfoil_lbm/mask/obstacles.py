@@ -145,25 +145,24 @@ class Shape:
         return domain
 
     def get_kernel_ratios(self, subdomain: np.ndarray,
-                          e, kernels,
+                          e,
                           kernel_nodes=None) -> np.ndarray:
         """
         Returns the ratio of the distance along a kernel direction for which it intersects with this Shape
         :param e:
         :param kernel_nodes:
-        :param kernels:
         :param subdomain:
         :return: The closest distance to the shape
         """
         polygon = self.get_shape_geometry(subdomain)
 
         if kernel_nodes is None:
-            kernel_nodes = my_obstacle.directional_boundaries(subdomain.copy(), kernels, e, opp)
+            kernel_nodes = my_obstacle.directional_boundaries(subdomain.copy(), e, opp)
 
         # Fill q with NaN values and only replace the value when the kernel convolution is nonzero
-        q = np.ones((kernels.shape[0], *subdomain.shape)) * np.nan
+        q = np.ones((e.shape[0], *subdomain.shape)) * np.nan
 
-        # Loop through all kernels / displacement vectors
+        # Loop through all displacement vectors
         for i, e_i in enumerate(e):
             nodes = kernel_nodes[i]
 
@@ -192,24 +191,20 @@ class Shape:
         plt.ylabel("y")
         plt.show()
 
-    def directional_boundaries(self, subdomain, kernels, e, opp):
+    def directional_boundaries(self, subdomain, e, opp):
         """
         For each kernel, the  points outside this Shape placed in the supplied domain that would be taken
         into this shape will be set to 1.
         :param subdomain: A numpy array containing the fluid domain in which this Shape should be placed
-        :param kernels: The kernels to test for. Should be 2D arrays containing a single 1 value.
         :param opp: An array containing the indices i' of the kernel that mirrors the kernel at index i
         :return: A numpy array of shape (kernels.shape[0], *domain.shape)
         """
         ex, ey = e.T
         mask = self.place_on_subdomain(subdomain)
 
-        directional_boundaries = np.zeros((kernels.shape[0], *subdomain.shape), dtype=np.bool)
-        for i , kernel in enumerate(kernels):
+        directional_boundaries = np.zeros((ex.size, *subdomain.shape), dtype=np.bool)
+        for i in range(ex.size):
             # Set all points outside the mask to 1 if its kernel is inside the mask
-            # directional_boundaries[opp[i], ~mask] = scipy.ndimage.convolve(np.array(mask, dtype=np.bool),
-            #                                                                kernel,
-            #                                                                mode='constant')[~mask]
             directional_boundaries[i, ~mask] = np.roll(mask, (-ey[i], -ex[i]), axis=(1, 0))[~mask]
         return directional_boundaries
 
@@ -268,7 +263,6 @@ class AirfoilNaca00xx(Shape):
 if __name__ == '__main__':
     # Get lattice parameters
     _, e, opp, ex, ey, _ = physics.lattice.D2Q9()
-    my_kernels = physics.lattice.get_kernels(ex, ey)
 
     my_domain = np.zeros((200, 200))
     my_domain_params = {'domain': my_domain,
@@ -288,10 +282,10 @@ if __name__ == '__main__':
 
     my_mask = my_obstacle.place_on_subdomain(my_subdomain.copy())
 
-    my_kernel_nodes = my_obstacle.directional_boundaries(my_subdomain.copy(), my_kernels, e, opp)
+    my_kernel_nodes = my_obstacle.directional_boundaries(my_subdomain.copy(), e, opp)
 
     # Get the q factors from the obstacle for this set of kernels
-    my_q = my_obstacle.get_kernel_ratios(my_subdomain.copy(), e, my_kernels, my_kernel_nodes)
+    my_q = my_obstacle.get_kernel_ratios(my_subdomain.copy(), e, my_kernel_nodes)
 
     # Show neighbouring nodes and q-factors for one kernel
     kernelind = 5
@@ -302,9 +296,6 @@ if __name__ == '__main__':
     plt.show()
 
     print(f"Showing neighbouring nodes for (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
-    plt.matshow(my_kernels[kernelind, :, :].T, origin='lower')
-    plt.title(f"Kernel {kernelind}, (e_x, e_y) = ({ex[kernelind]}, {ey[kernelind]})")
-    plt.show()
 
     plt.matshow((my_mask * 2 + my_kernel_nodes[kernelind, :, :]).T, origin='lower')
     plt.show()
