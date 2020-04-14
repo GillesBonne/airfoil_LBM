@@ -9,7 +9,8 @@ import subprocess
 import os
 
 palette: matplotlib.colors.LinearSegmentedColormap
-palette = copy.copy(matplotlib.cm.inferno)
+# palette = copy.copy(matplotlib.cm.inferno)
+palette = copy.copy(matplotlib.cm.Blues)
 palette.set_bad('#666')
 
 
@@ -87,7 +88,7 @@ def _plot_field(v, fig=None, ax=None, mask=None, title=None):
     if not mask is None:
         vprime[mask] = np.nan
 
-    im = ax.imshow(vprime.T, cmap=palette)
+    im = ax.imshow(vprime.T, cmap=palette, origin='lower')
     fig.colorbar(im)
 
 
