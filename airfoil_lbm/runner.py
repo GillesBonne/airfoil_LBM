@@ -66,21 +66,6 @@ plt.show()
 mask_obstacle = mask_object
 
 
-@numba.jit
-def equilibrium(rho, ux, uy) -> np.ndarray:
-    # Calculate feq
-    result = np.zeros((ex.size, *ux.shape))
-    for i in range(ex.size):
-        result[i, :, :] = ex[i] * ux + ey[i] * uy
-    result = (1 + 3 * result + 9 / 2 * result ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
-    for i in range(ex.size):
-        result[i, :, :] = w[i] * rho * result[i, :, :]
-    # evel = np.multiply.outer(ex, ux) + np.multiply.outer(ey, uy)
-    # feq = np.multiply.outer(w, rho) * (1 + 3 * evel + 9 / 2 *
-    #                                    evel ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
-    return result
-
-
 def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     ux = np.zeros(dims)
     uy = np.zeros(dims)
@@ -96,7 +81,7 @@ def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np
         ux[mask_matrix] = 0
         uy[mask_matrix] = 0
 
-    feq = equilibrium(rho, ux, uy)
+    feq = physics.lbm.equilibrium(rho, ux, uy, ex, ey, w)
     if periodic:
         feq = physics.boundary.apply_periodic_boundary(feq)
 
@@ -162,7 +147,7 @@ def main(Nt=1_000_000, tsave=20, debug=True):
         physics.boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
 
         # Calculate feq
-        feq = equilibrium(rho, ux, uy)
+        feq = physics.lbm.equilibrium(rho, ux, uy, ex, ey, w)
         fp[:, mask_obstacle] = 0
         feq[:, mask_obstacle] = 0
 
