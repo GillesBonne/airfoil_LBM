@@ -107,14 +107,15 @@ def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np
 
 def test_fields(f, feq, rho, ux, uy):
     u = np.sqrt(ux ** 2 + uy ** 2)
-    # print("Testing values inside the boundary")
-    #
-    # for (field, name) in [(u, "u"), (ux, "ux"), (uy, "uy")]:
-    #     print(f"{name}_max = {field[mask_object].max()}, {name}_min = {field[mask_object].min()}")
 
-    print("Testing values outside the boundary")
+    fields = [(rho, "rho"), (rho*u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
+    print("Testing values inside the mask")
+    for (field, name) in fields:
+        print((f"{name:>3s}_max = {field[mask_obstacle].max():>12.8f}, "
+               f"{name:>3s}_min = {field[mask_obstacle].min():>12.8f}"))
 
-    for (field, name) in [(u, "u"), (ux, "ux"), (uy, "uy")]:
+    print("Testing values outside the mask")
+    for (field, name) in fields:
         print((f"{name:>3s}_max = {field[~mask_obstacle].max():>12.8f}, "
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
