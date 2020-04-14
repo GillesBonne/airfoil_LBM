@@ -4,6 +4,7 @@ import numpy as np
 import mask.obstacles
 
 
+@numba.jit
 def apply_periodic_boundary(field, left_right=True, top_bottom=True):
     if len(field.shape) == 2:
         # [y, x]

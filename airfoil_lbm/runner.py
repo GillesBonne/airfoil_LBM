@@ -66,16 +66,8 @@ plt.show()
 mask_obstacle = mask_object
 
 
-def equilibrium(rho, ux, uy) -> np.ndarray:
-    # Calculate feq
-    evel = np.multiply.outer(ex, ux) + np.multiply.outer(ey, uy)
-    feq = np.multiply.outer(w, rho) * (1 + 3 * evel + 9 / 2 *
-                                       evel ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
-    return feq
-
-
 @numba.jit
-def equilibrium_nb(rho, ux, uy) -> np.ndarray:
+def equilibrium(rho, ux, uy) -> np.ndarray:
     # Calculate feq
     result = np.zeros((ex.size, *ux.shape))
     for i in range(ex.size):
@@ -123,8 +115,8 @@ def test_fields(f, feq, rho, ux, uy):
     print("Testing values outside the boundary")
 
     for (field, name) in [(u, "u"), (ux, "ux"), (uy, "uy")]:
-        print((f"{name:>3s}_max = {field[~mask_object].max():>12.8f}, "
-               f"{name:>3s}_min = {field[~mask_object].min():>12.8f}"))
+        print((f"{name:>3s}_max = {field[~mask_obstacle].max():>12.8f}, "
+               f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
 def main(Nt=1_000_000, tsave=20, debug=True):
@@ -155,23 +147,24 @@ def main(Nt=1_000_000, tsave=20, debug=True):
         # Do streaming: calculating the densities and velocities after a timestep dt
         # Store them into fp (fprime, f')
         for k in range(q):
-            fp[k, :, :] = np.roll(np.roll(f[k, :, :], ey[k], axis=1), ex[k], axis=0)
+            fp[k, :, :] = np.roll(f[k, :, :], (ey[k], ex[k]), axis=(1, 0))
         if periodic:
             fp = physics.boundary.apply_periodic_boundary(fp, left_right=periodic_x, top_bottom=periodic_y)
 
-        # fp = physics.boundary.bounce_back2(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+        # fp = physics.boundary.bounce_back(fp, mask_obstacle, opp)
         fp = physics.boundary.bounce_back_interpolated(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
 
         # Calculate macros
-        rho, ux, uy = physics.lbm.calculate_macros(fp, e)  # Set velocities within the obstacle to zero
-        physics.boundary.set_boundary_macro(mask_obstacle, (ux, uy), (0, 0))
-        physics.boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
+        rho, ux, uy = physics.lbm.calculate_macros(fp, ex, ey)  # Set velocities within the obstacle to zero
+        physics.boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
+        # physics.boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
+        physics.boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
 
         # Calculate feq
-        feq = equilibrium_nb(rho, ux, uy)
+        feq = equilibrium(rho, ux, uy)
 
         # Do collision
-        f = omega * feq + (1.0 - omega) * fp
+        f = fp + -(fp - feq) / tau
 
         if t % tsave == 0:
             test_fields(f, feq, rho, ux, uy)
