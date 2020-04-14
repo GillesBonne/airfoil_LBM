@@ -4,7 +4,7 @@ import numpy as np
 import mask.obstacles
 
 
-@numba.jit
+@numba.jit(nopython=True, cache=True)
 def apply_periodic_boundary(field, left_right=True, top_bottom=True):
     if len(field.shape) == 2:
         # [y, x]
@@ -25,7 +25,7 @@ def apply_periodic_boundary(field, left_right=True, top_bottom=True):
     return field
 
 
-# @numba.jit
+# @numba.jit(nopython=True, cache=True)
 def set_boundary_macro(mask, field, value):
     for i_f, f in enumerate(field):
         # For non-numba, this is faster:
@@ -37,7 +37,7 @@ def set_boundary_macro(mask, field, value):
         #     field[i_f][i, j] = value[i_f]
 
 
-@numba.jit
+@numba.jit(nopython=True, cache=True)
 def bounce_back(field, mask, opp):
     """
     Ordinary bounce-back implementation. Should be called before the propagation step.

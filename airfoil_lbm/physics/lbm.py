@@ -6,7 +6,7 @@ import typing
 
 # TODO: New name for this file
 
-@numba.jit
+@numba.jit(nopython=True, cache=True)
 def calculate_macros(f, ex, ey) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculates the macroscopic variables (density, velocity_x, velocity_y) for the given field.
