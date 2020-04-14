@@ -1,26 +1,6 @@
 import numpy as np
 
 
-def apply_periodic_boundary(field, left_right=True, top_bottom=True):
-    if len(field.shape) == 2:
-        # [y, x]
-        if left_right:
-            field[:, 0] = field[:, -2]
-            field[:, -1] = field[:, 1]
-        if top_bottom:
-            field[0, :] = field[-2, :]
-            field[-1, :] = field[1, :]
-    elif len(field.shape) == 3:
-        # [q, y, x]
-        if left_right:
-            field[:, :, 0] = field[:, :, -2]
-            field[:, :, -1] = field[:, :, 1]
-        if top_bottom:
-            field[:, 0, :] = field[:, -2, :]
-            field[:, -1, :] = field[:, 1, :]
-    return field
-
-
 def get_sides_mask(domain, top=True, bottom=True):
     mask = np.zeros(domain.shape)
     if bottom:
