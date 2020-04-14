@@ -162,6 +162,8 @@ def main(Nt=1_000_000, tsave=20, debug=True):
 
         # Calculate feq
         feq = equilibrium(rho, ux, uy)
+        fp[:, mask_obstacle] = 0
+        feq[:, mask_obstacle] = 0
 
         # Do collision
         f = fp + -(fp - feq) / tau
