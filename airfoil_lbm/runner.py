@@ -11,10 +11,9 @@ import visualization
 
 # Flow constants
 maxIter = 100000  # amount of cycles
-Re = 120  # Reynolds number
+Re = 20  # Reynolds number
 Nx = 700  # Lattice points in x-direction
 Ny = 200  # Lattice points in y-direction
-U_inf = 0.09  # velocity at a distance far away from the airfoil
 
 # Get lattice parameters
 lattice_configuration = physics.lattice.D2Q9
@@ -28,10 +27,9 @@ my_domain_params = {'x_size': obstacle_r,
                     'x_center': 0.2,
                     'y_center': 0.5}
 
-# tau = 3
-# nu = (1.0 / 3.0) * (tau - 0.5)
-nu = U_inf * obstacle_r / Re  # kinematic viscosity
-tau = 3. * (nu + 0.5)  # relaxation parameter
+tau = 10  # relaxation parameter
+U_inf = physics.lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
+nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
 omega = tau ** -1
 
 print(f"# Parameters")
@@ -39,6 +37,7 @@ print(f"tau = {tau:.2f}")
 print(f"omega = {omega:.2f}")
 print(f"Re = {Re:.2f}")
 print(f"U_inf = {U_inf:.2f}")
+print(f"nu = {nu:.2f}")
 print("\n")
 
 periodic_x = False
