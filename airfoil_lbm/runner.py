@@ -39,10 +39,12 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
     u = np.sqrt(ux ** 2 + uy ** 2)
 
     fields = [(rho, "rho"), (rho*u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
-    print("Testing values inside the mask")
-    for (field, name) in fields:
-        print((f"{name:>3s}_max = {field[mask_obstacle].max():>12.8f}, "
-               f"{name:>3s}_min = {field[mask_obstacle].min():>12.8f}"))
+
+    if np.any(mask_obstacle):
+        print("Testing values inside the mask")
+        for (field, name) in fields:
+            print((f"{name:>3s}_max = {field[mask_obstacle].max():>12.8f}, "
+                   f"{name:>3s}_min = {field[mask_obstacle].min():>12.8f}"))
 
     print("Testing values outside the mask")
     for (field, name) in fields:
@@ -50,28 +52,28 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def main(Nt=1_000_000, tsave=20, debug=True):
-    # Flow constants
-    maxIter = 100000  # amount of cycles
-    Re = 20  # Reynolds number
-    Nx = 700  # Lattice points in x-direction
-    Ny = 200  # Lattice points in y-direction
+def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil, angle=None, thickness=None):
+    if circle and naca:
+        raise ValueError('Choose either a circle or airfoil obstacle.')
+    elif simple_bounce and interp_bounce:
+        raise ValueError(
+            'Choose either the simple bounce back scheme or using interpolated boundaries.')
 
     # Get lattice parameters
     lattice_configuration = lattice.D2Q9
     q, e, opp, ex, ey, w = lattice_configuration()
 
     # Obstacle information
-
     obstacle_r = Ny // 4  # radius of the cylinder
     my_domain_params = {'x_size': obstacle_r,
                         'y_size': obstacle_r,
                         'x_center': 0.2,
                         'y_center': 0.5}
 
-    tau = 10  # relaxation parameter
     U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
-    nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
+
+    # kinematic viscosity
+    nu = (1.0 / 3.0) * (tau - 0.5)
     omega = tau ** -1
 
     print(f"# Parameters")
@@ -82,8 +84,6 @@ def main(Nt=1_000_000, tsave=20, debug=True):
     print(f"nu = {nu:.2f}")
     print("\n")
 
-    periodic_x = False
-    periodic_y = False
     periodic = periodic_x or periodic_y
 
     dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
@@ -91,22 +91,29 @@ def main(Nt=1_000_000, tsave=20, debug=True):
     mask_boundary = boundary.get_boundary_mask(
         np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-    # shape = obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
-    shape = obstacles.Circle(size_fraction=0.9)
-    mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
+    if circle:
+        shape = obstacles.Circle(size_fraction=0.9)
+    elif airfoil:
+        if angle is not None and thickness is not None:
+            shape = obstacles.AirfoilNaca00xx(angle=angle, thickness=thickness)
+        else:
+            raise ValueError('Naca airfoil properties not specified.')
 
-    subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
+    if circle or airfoil:
+        mask_obstacle = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
+        subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
 
-    x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
-        e, opp, shape, subdomain)
-    x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
-                                       for a in (x_mask, x_minus_ck_mask, q_mask)]
+        if interp_bounce:
+            x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
+                e, opp, shape, subdomain)
+            x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
+                                               for a in (x_mask, x_minus_ck_mask, q_mask)]
+    else:
+        mask_obstacle = np.zeros(dims, dtype=bool)
 
-    plt.matshow(mask_object.T)
-    plt.title("Object mask")
+    plt.matshow(mask_obstacle.T, origin='lower')
+    plt.title("Obstacle mask")
     plt.show()
-
-    mask_obstacle = mask_object
 
     # Initialize PDF
     feq, rho, ux, uy = get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_obstacle)
@@ -140,13 +147,19 @@ def main(Nt=1_000_000, tsave=20, debug=True):
             fp = boundary.apply_periodic_boundary(
                 fp, left_right=periodic_x, top_bottom=periodic_y)
 
-        # fp = boundary.bounce_back(fp, mask_obstacle, opp)
-        fp = boundary.bounce_back_interpolated(
-            fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+        if circle or airfoil:
+            if simple_bounce:
+                fp = boundary.bounce_back(fp, mask_obstacle, opp)
+            elif interp_bounce:
+                fp = boundary.bounce_back_interpolated(
+                    fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+            else:
+                raise ValueError('Choose which bounce back scheme to use.')
 
         # Calculate macros
-        # Set velocities within the obstacle to zero
         rho, ux, uy = lbm.calculate_macros(fp, ex, ey)
+
+        # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
         # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
         boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
@@ -184,4 +197,15 @@ def main(Nt=1_000_000, tsave=20, debug=True):
 
 
 if __name__ == "__main__":
-    main()
+    Nt = 1_000_000
+    tsave = 20
+    debug = True
+    Re = 20  # Reynolds number
+    Nx = 700  # Lattice points in x-direction
+    Ny = 200  # Lattice points in y-direction
+    tau = 10  # relaxation parameter
+    periodic_x = False
+    periodic_y = False
+    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
+        simple_bounce=True, interp_bounce=False,
+        circle=False, airfoil=True, angle=10, thickness=0.2)

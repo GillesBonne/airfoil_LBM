@@ -34,7 +34,7 @@ def D2Q9():
     return q, e, e_opposite, ex, ey, w
 
 
-def calculate_u_inf(L, Re=120, tau=1):
+def calculate_u_inf(L, Re, tau):
     nu = (tau-1/2)/3
     u = Re * nu / L
     return u
