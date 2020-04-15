@@ -10,65 +10,8 @@ import lbm
 import obstacles
 import visualization
 
-# Flow constants
-maxIter = 100000  # amount of cycles
-Re = 20  # Reynolds number
-Nx = 700  # Lattice points in x-direction
-Ny = 200  # Lattice points in y-direction
 
-# Get lattice parameters
-lattice_configuration = lattice.D2Q9
-q, e, opp, ex, ey, w = lattice_configuration()
-
-# Obstacle information
-
-obstacle_r = Ny // 4  # radius of the cylinder
-my_domain_params = {'x_size': obstacle_r,
-                    'y_size': obstacle_r,
-                    'x_center': 0.2,
-                    'y_center': 0.5}
-
-tau = 10  # relaxation parameter
-U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
-nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
-omega = tau ** -1
-
-print(f"# Parameters")
-print(f"tau = {tau:.2f}")
-print(f"omega = {omega:.2f}")
-print(f"Re = {Re:.2f}")
-print(f"U_inf = {U_inf:.2f}")
-print(f"nu = {nu:.2f}")
-print("\n")
-
-periodic_x = False
-periodic_y = False
-periodic = periodic_x or periodic_y
-
-dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
-
-mask_boundary = boundary.get_boundary_mask(
-    np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
-
-# shape = obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
-shape = obstacles.Circle(size_fraction=0.9)
-mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
-
-subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
-
-x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
-    e, opp, shape, subdomain)
-x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
-                                   for a in (x_mask, x_minus_ck_mask, q_mask)]
-
-plt.matshow(mask_object.T)
-plt.title("Object mask")
-plt.show()
-
-mask_obstacle = mask_object
-
-
-def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     ux = np.zeros(dims)
     uy = np.zeros(dims)
 
@@ -92,7 +35,7 @@ def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np
     return feq, rho, ux, uy
 
 
-def test_fields(f, feq, rho, ux, uy):
+def test_fields(f, feq, rho, ux, uy, mask_obstacle):
     u = np.sqrt(ux ** 2 + uy ** 2)
 
     fields = [(rho, "rho"), (rho*u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
@@ -108,10 +51,67 @@ def test_fields(f, feq, rho, ux, uy):
 
 
 def main(Nt=1_000_000, tsave=20, debug=True):
-    # Initialize PDF
-    feq, rho, ux, uy = get_initial_conditions(mask_obstacle)
+    # Flow constants
+    maxIter = 100000  # amount of cycles
+    Re = 20  # Reynolds number
+    Nx = 700  # Lattice points in x-direction
+    Ny = 200  # Lattice points in y-direction
 
-    test_fields(feq, feq, rho, ux, uy)
+    # Get lattice parameters
+    lattice_configuration = lattice.D2Q9
+    q, e, opp, ex, ey, w = lattice_configuration()
+
+    # Obstacle information
+
+    obstacle_r = Ny // 4  # radius of the cylinder
+    my_domain_params = {'x_size': obstacle_r,
+                        'y_size': obstacle_r,
+                        'x_center': 0.2,
+                        'y_center': 0.5}
+
+    tau = 10  # relaxation parameter
+    U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
+    nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
+    omega = tau ** -1
+
+    print(f"# Parameters")
+    print(f"tau = {tau:.2f}")
+    print(f"omega = {omega:.2f}")
+    print(f"Re = {Re:.2f}")
+    print(f"U_inf = {U_inf:.2f}")
+    print(f"nu = {nu:.2f}")
+    print("\n")
+
+    periodic_x = False
+    periodic_y = False
+    periodic = periodic_x or periodic_y
+
+    dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
+
+    mask_boundary = boundary.get_boundary_mask(
+        np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
+
+    # shape = obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
+    shape = obstacles.Circle(size_fraction=0.9)
+    mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
+
+    subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
+
+    x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
+        e, opp, shape, subdomain)
+    x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
+                                       for a in (x_mask, x_minus_ck_mask, q_mask)]
+
+    plt.matshow(mask_object.T)
+    plt.title("Object mask")
+    plt.show()
+
+    mask_obstacle = mask_object
+
+    # Initialize PDF
+    feq, rho, ux, uy = get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_obstacle)
+
+    test_fields(feq, feq, rho, ux, uy, mask_obstacle)
 
     f = feq.copy()
     fp = feq.copy()
@@ -160,7 +160,7 @@ def main(Nt=1_000_000, tsave=20, debug=True):
         f = fp + -(fp - feq) / tau
 
         if t % tsave == 0:
-            test_fields(f, feq, rho, ux, uy)
+            test_fields(f, feq, rho, ux, uy, mask_obstacle)
             it = t // tsave
             ts[it] = t
             uxmax[it] = np.max(ux)

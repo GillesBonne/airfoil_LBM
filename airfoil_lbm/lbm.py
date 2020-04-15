@@ -3,8 +3,6 @@ import typing
 import numba
 import numpy as np
 
-# TODO: New name for this file
-
 
 @numba.jit(nopython=True, cache=True)
 def calculate_macros(f, ex, ey) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarray]:
