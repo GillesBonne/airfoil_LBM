@@ -1,12 +1,13 @@
 from typing import Tuple
 
 import matplotlib.pyplot as plt
-import numpy as np
 import numba
+import numpy as np
 
-import physics
-import mask.boundary
-import mask.obstacles
+import boundary
+import lattice
+import lbm
+import obstacles
 import visualization
 
 # Flow constants
@@ -16,7 +17,7 @@ Nx = 700  # Lattice points in x-direction
 Ny = 200  # Lattice points in y-direction
 
 # Get lattice parameters
-lattice_configuration = physics.lattice.D2Q9
+lattice_configuration = lattice.D2Q9
 q, e, opp, ex, ey, w = lattice_configuration()
 
 # Obstacle information
@@ -28,7 +29,7 @@ my_domain_params = {'x_size': obstacle_r,
                     'y_center': 0.5}
 
 tau = 10  # relaxation parameter
-U_inf = physics.lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
+U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
 nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
 omega = tau ** -1
 
@@ -46,16 +47,17 @@ periodic = periodic_x or periodic_y
 
 dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
 
-mask_boundary = mask.boundary.get_boundary_mask(
+mask_boundary = boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-# shape = mask.obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
-shape = mask.obstacles.Circle(size_fraction=0.9)
+# shape = obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
+shape = obstacles.Circle(size_fraction=0.9)
 mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
 
 subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
 
-x_mask, x_minus_ck_mask, q_mask = physics.boundary.prepare_bounceback_interpolated(e, opp, shape, subdomain)
+x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
+    e, opp, shape, subdomain)
 x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
                                    for a in (x_mask, x_minus_ck_mask, q_mask)]
 
@@ -81,9 +83,9 @@ def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np
         ux[mask_matrix] = 0
         uy[mask_matrix] = 0
 
-    feq = physics.lbm.equilibrium(rho, ux, uy, ex, ey, w)
+    feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
     if periodic:
-        feq = physics.boundary.apply_periodic_boundary(feq)
+        feq = boundary.apply_periodic_boundary(feq)
 
     # rho, ux, uy = calculate_macros(feq)
 
@@ -128,26 +130,29 @@ def main(Nt=1_000_000, tsave=20, debug=True):
             print(f"\n# t = {t}")
 
         # Bounce back
-        # f = physics.boundary.bounce_back(f, mask_obstacle, np.array(opp))
+        # f = boundary.bounce_back(f, mask_obstacle, np.array(opp))
 
         # Do streaming: calculating the densities and velocities after a timestep dt
         # Store them into fp (fprime, f')
         for k in range(q):
             fp[k, :, :] = np.roll(f[k, :, :], (ey[k], ex[k]), axis=(1, 0))
         if periodic:
-            fp = physics.boundary.apply_periodic_boundary(fp, left_right=periodic_x, top_bottom=periodic_y)
+            fp = boundary.apply_periodic_boundary(
+                fp, left_right=periodic_x, top_bottom=periodic_y)
 
-        # fp = physics.boundary.bounce_back(fp, mask_obstacle, opp)
-        fp = physics.boundary.bounce_back_interpolated(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+        # fp = boundary.bounce_back(fp, mask_obstacle, opp)
+        fp = boundary.bounce_back_interpolated(
+            fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
 
         # Calculate macros
-        rho, ux, uy = physics.lbm.calculate_macros(fp, ex, ey)  # Set velocities within the obstacle to zero
-        physics.boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
-        # physics.boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
-        physics.boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
+        # Set velocities within the obstacle to zero
+        rho, ux, uy = lbm.calculate_macros(fp, ex, ey)
+        boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
+        # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
+        boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
 
         # Calculate feq
-        feq = physics.lbm.equilibrium(rho, ux, uy, ex, ey, w)
+        feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
         fp[:, mask_obstacle] = 0
         feq[:, mask_obstacle] = 0
 
@@ -165,7 +170,8 @@ def main(Nt=1_000_000, tsave=20, debug=True):
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
-            visualization._show_streamlines(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle)
+            visualization._show_streamlines(ux, uy, v=np.sqrt(
+                ux ** 2 + uy ** 2), mask=mask_obstacle)
             plt.show()
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")

@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.ndimage
 import scipy.spatial
-import physics
 import shapely.affinity
 import shapely.geometry
+
+import lattice
 
 
 def rotate_around_point(xy, radians, origin):
@@ -117,7 +118,8 @@ class Shape:
                                    x_size, y_size, x_center, y_center,
                                    fill_value=0):
         domain = (np.ones(domain_shape, dtype=subdomain.dtype) * fill_value).astype(subdomain.dtype)
-        x_ind, y_ind = self.get_subdomain_indices(domain.shape[-2:], x_size, y_size, x_center, y_center)
+        x_ind, y_ind = self.get_subdomain_indices(
+            domain.shape[-2:], x_size, y_size, x_center, y_center)
 
         if len(domain.shape) == 2:
             domain[x_ind, y_ind] = subdomain
@@ -262,7 +264,7 @@ class AirfoilNaca00xx(Shape):
 
 if __name__ == '__main__':
     # Get lattice parameters
-    _, e, opp, ex, ey, _ = physics.lattice.D2Q9()
+    _, e, opp, ex, ey, _ = lattice.D2Q9()
 
     my_domain = np.zeros((200, 200))
     my_domain_params = {'domain': my_domain,

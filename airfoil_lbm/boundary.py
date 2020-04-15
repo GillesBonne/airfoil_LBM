@@ -1,7 +1,34 @@
 import numba
 import numpy as np
 
-import mask.obstacles
+import obstacles
+
+
+def get_sides_mask(domain, top=True, bottom=True):
+    mask = np.zeros(domain.shape)
+    if bottom:
+        mask[:, -1] = True  # Bottom side
+    if top:
+        mask[:, 0] = True  # Top side
+    return mask
+
+
+def get_inlet_mask(domain):
+    mask = np.zeros(domain.shape)
+    mask[0:2, :] = True  # Inlet
+    return mask
+
+
+def get_outlet_mask(domain):
+    mask = np.zeros(domain.shape)
+    mask[-1, :] = True  # Inlet
+    return mask
+
+
+def get_boundary_mask(domain, inlet=True, outlet=True, top=True, bottom=True):
+    return (get_sides_mask(domain, top=top, bottom=bottom)
+            + get_inlet_mask(domain) * inlet
+            + get_outlet_mask(domain) * outlet) > 0
 
 
 @numba.jit(nopython=True, cache=True)
@@ -57,7 +84,7 @@ def bounce_back(field, mask, opp):
     return field
 
 
-def prepare_bounceback_interpolated(e, opp, shape: mask.obstacles.Shape,
+def prepare_bounceback_interpolated(e, opp, shape: obstacles.Shape,
                                     subdomain):
     """
     Preparation for bounce_back_interpolated
@@ -101,13 +128,13 @@ def bounce_back_interpolated(field, field_prev, mask, x_mask, x_minus_ck_mask, q
 
     # Bouzidi scheme, piecewise for q>1/2 and q<=1/2
     qplus = 2 * q_masked * field_prev[x_mask] \
-            + (1 - 2 * q_masked) * field_prev[x_minus_ck_mask]
+        + (1 - 2 * q_masked) * field_prev[x_minus_ck_mask]
     qminus = 1 / (2 * q_masked) * field_prev[x_mask] \
-             + (2 * q_masked - 1) / (2 * q_masked) * field_prev[x_mask[opp]]
+        + (2 * q_masked - 1) / (2 * q_masked) * field_prev[x_mask[opp]]
 
     # For q_masked = 1/2, this should yield the same result as the ordinary bounce-back
     # q_masked[:] = 1/2
     field[opp][x_mask] = qplus * (q_masked < 1 / 2) \
-                         + qminus * (q_masked >= 1 / 2)
+        + qminus * (q_masked >= 1 / 2)
 
     return field

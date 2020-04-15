@@ -1,12 +1,13 @@
 import copy
-import numpy as np
-import matplotlib.pyplot as plt
+import os
+import subprocess
+
+import matplotlib.axes
 import matplotlib.cm
 import matplotlib.colors
-import matplotlib.axes
 import matplotlib.figure
-import subprocess
-import os
+import matplotlib.pyplot as plt
+import numpy as np
 
 palette: matplotlib.colors.LinearSegmentedColormap
 # palette = copy.copy(matplotlib.cm.inferno)
@@ -128,7 +129,3 @@ def _show_streamlines(vx, vy, v=None,
                                      density=(15., 1.),
                                      linewidth=linewidth, arrowsize=0, arrowstyle='-')
     stream_container.lines.set_alpha(0.618 + 0.1)  # Triggered
-
-
-if __name__ == "__main__":
-    make_video()
