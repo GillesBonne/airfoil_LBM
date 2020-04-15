@@ -35,3 +35,17 @@ def calculate_macros(f, ex, ey) -> typing.Tuple[np.ndarray, np.ndarray, np.ndarr
     # Increment velocities in x-direction to mimic a constant pressure drop
     # ux[rho > 0] += 0.001 / rho[rho > 0]
     return rho, ux, uy
+
+
+@numba.jit(nopython=True, cache=True)
+def equilibrium(rho, ux, uy, ex, ey, w) -> np.ndarray:
+    # Calculate feq
+    result = np.zeros((ex.size, *ux.shape))
+    for i in range(ex.size):
+        result[i, :, :] = ex[i] * ux + ey[i] * uy
+        result[i, :, :] = (1 + 3 * result[i, :, :] + 9 / 2 * result[i, :, :] ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
+        result[i, :, :] = w[i] * rho * result[i, :, :]
+    # evel = np.multiply.outer(ex, ux) + np.multiply.outer(ey, uy)
+    # feq = np.multiply.outer(w, rho) * (1 + 3 * evel + 9 / 2 *
+    #                                    evel ** 2 - 3 / 2 * (ux ** 2 + uy ** 2))
+    return result
