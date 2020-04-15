@@ -159,6 +159,17 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         # Calculate macros
         rho, ux, uy = lbm.calculate_macros(fp, ex, ey)
 
+        # Force calculation.
+        if t % tsave == 0:
+            if simple_bounce:
+                fx = 2*ux[mask_obstacle].sum()
+                fy = 2*uy[mask_obstacle].sum()
+            else:
+                fx = None
+                fy = None
+            print('fx: ', fx)
+            print('fy: ', fy)
+
         # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
         # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
