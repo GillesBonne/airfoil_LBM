@@ -107,7 +107,7 @@ def bounce_back_interpolated(field, field_prev, mask, x_mask, x_minus_ck_mask, q
 
     # For q_masked = 1/2, this should yield the same result as the ordinary bounce-back
     # q_masked[:] = 1/2
-    field[opp][x_mask] = qplus * (q_masked > 1 / 2) \
-                         + qminus * (q_masked <= 1 / 2)
+    field[opp][x_mask] = qplus * (q_masked < 1 / 2) \
+                         + qminus * (q_masked >= 1 / 2)
 
     return field
