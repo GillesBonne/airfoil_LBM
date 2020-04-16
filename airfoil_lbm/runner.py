@@ -188,7 +188,14 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
             it = t // tsave
             ts[it] = t
             uxmax[it] = np.max(ux)
-            m[it] = rho.sum()
+            if periodic_x and periodic_y:
+                m[it] = rho[1:Nx+1, 1:Ny+1].sum()
+            elif periodic_x:
+                m[it] = rho[1:Nx+1, :].sum()
+            elif periodic_y:
+                m[it] = rho[:, 1:Ny+1].sum()
+            else:
+                m[it] = rho.sum()
 
             # Save velocity profile as an image
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
