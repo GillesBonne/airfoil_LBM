@@ -11,15 +11,14 @@ import obstacles
 import visualization
 
 
-def get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+def get_initial_conditions(dims, u0, Nx, Ny, L, ex, ey, w, periodic, mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     ux = np.zeros(dims)
     uy = np.zeros(dims)
 
-    u0 = U_inf
     rho = np.ones(ux.shape)
 
-    # Start with a uniform initial velocity distribution
-    ux = np.broadcast_to(u0, dims).copy()
+    ux_1d = u0*np.sin(2*np.pi*(np.arange(0, Ny+2)-1)/L)
+    ux = np.broadcast_to(ux_1d, (Nx+2, Ny+2)).copy()
 
     if mask_matrix is not None:
         # Set velocity to zero within the boundary
@@ -52,7 +51,9 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil, angle=None, thickness=None):
+def run(Nt, tsave, debug, Nx, Ny, tau, periodic_x, periodic_y,
+        simple_bounce=False, interp_bounce=False,
+        circle=False, airfoil=False, angle=None, thickness=None):
     if circle and naca:
         raise ValueError('Choose either a circle or airfoil obstacle.')
     elif simple_bounce and interp_bounce:
@@ -70,7 +71,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
                         'x_center': 0.2,
                         'y_center': 0.5}
 
-    U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
+    u0 = 0.2
 
     # kinematic viscosity
     nu = (1.0 / 3.0) * (tau - 0.5)
@@ -79,17 +80,13 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     print(f"# Parameters")
     print(f"tau = {tau:.2f}")
     print(f"omega = {omega:.2f}")
-    print(f"Re = {Re:.2f}")
-    print(f"U_inf = {U_inf:.2f}")
+    print(f"u0 = {u0:.2f}")
     print(f"nu = {nu:.2f}")
     print("\n")
 
     periodic = periodic_x or periodic_y
 
     dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
-
-    mask_boundary = boundary.get_boundary_mask(
-        np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
     if circle:
         shape = obstacles.Circle(size_fraction=0.9)
@@ -115,8 +112,10 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     plt.title("Obstacle mask")
     plt.show()
 
+    L = Ny
     # Initialize PDF
-    feq, rho, ux, uy = get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_obstacle)
+    feq, rho, ux, uy = get_initial_conditions(
+        dims, u0, Nx, Ny, L, ex, ey, w, periodic, mask_obstacle)
 
     test_fields(feq, feq, rho, ux, uy, mask_obstacle)
 
@@ -170,11 +169,6 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
             print('fx: ', fx)
             print('fy: ', fy)
 
-        # Set velocities within the obstacle to zero
-        boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
-        # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
-        boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
-
         # Calculate feq
         feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
         fp[:, mask_obstacle] = 0
@@ -188,15 +182,18 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
             it = t // tsave
             ts[it] = t
             uxmax[it] = np.max(ux)
-            m[it] = rho.sum()
+            if periodic_x and periodic_y:
+                m[it] = rho[1:Nx+1, 1:Ny+1].sum()
+            elif not periodic:
+                m[it] = rho.sum()
 
             # Save velocity profile as an image
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
-            visualization._show_streamlines(ux, uy, v=np.sqrt(
-                ux ** 2 + uy ** 2), mask=mask_obstacle)
-            plt.show()
+            # visualization._show_streamlines(ux, uy, v=np.sqrt(
+            #     ux ** 2 + uy ** 2), mask=mask_obstacle)
+            # plt.show()
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
@@ -204,19 +201,24 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         # the mass at each node.
         # assert rho.round().sum() == els, f"Time = {t}, {rho.sum()}=/={els}"
     # visualization.save_field_as_image(ux)
-    visualization.plot_2d(uxmax)
+    visualization._show_streamlines(ux, uy, v=ux, mask=mask_obstacle)
+    plt.show()
+
+    m -= (Nx*Ny)
+    plt.plot(ts, m)
+    plt.show()
+
+    plt.plot(ts, uxmax)
+    plt.show()
 
 
 if __name__ == "__main__":
-    Nt = 1_000_000
+    Nt = 1_000
     tsave = 20
     debug = True
-    Re = 20  # Reynolds number
-    Nx = 700  # Lattice points in x-direction
-    Ny = 200  # Lattice points in y-direction
-    tau = 10  # relaxation parameter
-    periodic_x = False
-    periodic_y = False
-    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
-        simple_bounce=True, interp_bounce=False,
-        circle=False, airfoil=True, angle=10, thickness=0.2)
+    Nx = 32  # Lattice points in x-direction
+    Ny = 32  # Lattice points in y-direction
+    tau = 1  # relaxation parameter
+    periodic_x = True
+    periodic_y = True
+    run(Nt, tsave, debug, Nx, Ny, tau, periodic_x, periodic_y)
