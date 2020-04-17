@@ -140,8 +140,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         if debug and t % tsave == 0:
             print(f"\n# t = {t}")
 
-        # Bounce back
-        # f = boundary.bounce_back(f, mask_obstacle, np.array(opp))
+        # Restrict flow velocity ux < 0 at the outlet
+        fp[e_min_x, -1, :] = fp[e_min_x, -2, :]
 
         # Do streaming: calculating the densities and velocities after a timestep dt
         # Store them into fp (fprime, f')
