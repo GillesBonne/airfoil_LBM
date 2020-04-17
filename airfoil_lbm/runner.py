@@ -127,6 +127,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
 
     ts = np.arange(start=0, stop=Nt, step=tsave)
     m = np.zeros(ts.shape)
+    fx = np.zeros(ts.shape)
+    fy = np.zeros(ts.shape)
     uxmax = np.zeros(ts.shape)
 
     if debug:
@@ -161,14 +163,13 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
 
         # Force calculation.
         if t % tsave == 0:
+            it = t // tsave
             if simple_bounce:
-                fx = 2*ux[mask_obstacle].sum()
-                fy = 2*uy[mask_obstacle].sum()
+                fx[it] = 2*ux[mask_obstacle].sum()
+                fy[it] = 2*uy[mask_obstacle].sum()
             else:
                 fx = None
                 fy = None
-            print('fx: ', fx)
-            print('fy: ', fy)
 
         # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
@@ -201,9 +202,9 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
             # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
-            visualization._show_streamlines(ux, uy, v=np.sqrt(
-                ux ** 2 + uy ** 2), mask=mask_obstacle)
-            plt.show()
+            # visualization._show_streamlines(ux, uy, v=np.sqrt(
+            #     ux ** 2 + uy ** 2), mask=mask_obstacle)
+            # plt.show()
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
@@ -212,10 +213,14 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         # assert rho.round().sum() == els, f"Time = {t}, {rho.sum()}=/={els}"
     # visualization.save_field_as_image(ux)
     visualization.plot_2d(uxmax)
+    plt.plot(ts, fx)
+    plt.show()
+    plt.plot(ts, fy)
+    plt.show()
 
 
 if __name__ == "__main__":
-    Nt = 1_000_000
+    Nt = 1_000
     tsave = 20
     debug = True
     Re = 20  # Reynolds number
