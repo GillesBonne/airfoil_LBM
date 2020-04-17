@@ -28,6 +28,7 @@ def save_field_as_image(v, mask=None, filename="output"):
     """
     _plot_field(v, mask=mask, title=filename)
     plt.savefig(f"../output/{filename}.png", dpi=300)
+    plt.close()
 
 
 def save_streamlines_as_image(vx, vy, v=None, mask=None, title=None, filename="output"):
@@ -84,6 +85,9 @@ def _plot_field(v, fig=None, ax=None, mask=None, title=None):
     if fig is None or ax is None:
         plt.clf()
         fig, ax = plt.subplots()
+
+    if title is not None:
+        fig.suptitle(title)
 
     vprime = v.copy()
     if not mask is None:
