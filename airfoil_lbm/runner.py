@@ -223,12 +223,12 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
 
 
 if __name__ == "__main__":
-    Nt = 1_000
-    tsave = 20
+    Nt = 100_000
+    tsave = 100
     debug = True
-    Re = 20  # Reynolds number
-    Nx = 700  # Lattice points in x-direction
-    Ny = 200  # Lattice points in y-direction
+    Re = 220  # Reynolds number
+    Nx = 520  # Lattice points in x-direction
+    Ny = 180  # Lattice points in y-direction
     tau = 1  # relaxation parameter
     periodic_x = False
     periodic_y = False
