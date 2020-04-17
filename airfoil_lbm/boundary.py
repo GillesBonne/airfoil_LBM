@@ -15,7 +15,7 @@ def get_sides_mask(domain, top=True, bottom=True):
 
 def get_inlet_mask(domain):
     mask = np.zeros(domain.shape)
-    mask[0:2, :] = True  # Inlet
+    mask[0, :] = True  # Inlet
     return mask
 
 
