@@ -11,7 +11,7 @@ import visualization
 
 # Flow constants
 maxIter = 100000  # amount of cycles
-Re = 20  # Reynolds number
+Re = 200  # Reynolds number
 Nx = 700  # Lattice points in x-direction
 Ny = 200  # Lattice points in y-direction
 
@@ -21,13 +21,13 @@ q, e, opp, ex, ey, w = lattice_configuration()
 
 # Obstacle information
 
-obstacle_r = Ny // 4  # radius of the cylinder
+obstacle_r = Ny  # radius of the cylinder
 my_domain_params = {'x_size': obstacle_r,
                     'y_size': obstacle_r,
                     'x_center': 0.2,
                     'y_center': 0.5}
 
-tau = 10  # relaxation parameter
+tau = 1  # relaxation parameter
 U_inf = physics.lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
 nu = (1.0 / 3.0) * (tau - 0.5)  # kinematic viscosity
 omega = tau ** -1
@@ -40,6 +40,16 @@ print(f"U_inf = {U_inf:.2f}")
 print(f"nu = {nu:.2f}")
 print("\n")
 
+
+def show(f, i=5):
+    if len(f.shape) == 3:
+        f = f[i]
+        print(f"(ex, ey) = ({ex[i]},{ey[i]})")
+    plt.matshow(f.T, origin='lower')
+    plt.colorbar()
+    plt.show()
+
+
 periodic_x = False
 periodic_y = False
 periodic = periodic_x or periodic_y
@@ -49,8 +59,9 @@ dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
 mask_boundary = mask.boundary.get_boundary_mask(
     np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-# shape = mask.obstacles.AirfoilNaca00xx(angle=-20, thickness=0.2)
-shape = mask.obstacles.Circle(size_fraction=0.9)
+# shape = mask.obstacles.AirfoilNaca00xx(angle=20, thickness=0.2)
+shape = mask.obstacles.Circle(size_fraction=1/5)
+# shape = mask.obstacles.Square(size_fraction=1/5)
 mask_object = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
 
 subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
@@ -93,7 +104,7 @@ def get_initial_conditions(mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np
 def test_fields(f, feq, rho, ux, uy):
     u = np.sqrt(ux ** 2 + uy ** 2)
 
-    fields = [(rho, "rho"), (rho*u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
+    fields = [(rho, "rho"), (rho * u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
     print("Testing values inside the mask")
     for (field, name) in fields:
         print((f"{name:>3s}_max = {field[mask_obstacle].max():>12.8f}, "
@@ -105,7 +116,8 @@ def test_fields(f, feq, rho, ux, uy):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def main(Nt=1_000_000, tsave=20, debug=True):
+def main(Nt=10000, tsave=10, debug=True):
+
     # Initialize PDF
     feq, rho, ux, uy = get_initial_conditions(mask_obstacle)
 
@@ -138,18 +150,19 @@ def main(Nt=1_000_000, tsave=20, debug=True):
             fp = physics.boundary.apply_periodic_boundary(fp, left_right=periodic_x, top_bottom=periodic_y)
 
         # fp = physics.boundary.bounce_back(fp, mask_obstacle, opp)
-        fp = physics.boundary.bounce_back_interpolated(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+        # fp = physics.boundary.bounce_back_interpolated(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+        fp = physics.boundary.bounce_back2(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
 
         # Calculate macros
         rho, ux, uy = physics.lbm.calculate_macros(fp, ex, ey)  # Set velocities within the obstacle to zero
         physics.boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
         # physics.boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
-        physics.boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
+        physics.boundary.set_boundary_macro(mask_boundary, (ux, rho), (U_inf, 1))
 
         # Calculate feq
         feq = physics.lbm.equilibrium(rho, ux, uy, ex, ey, w)
-        fp[:, mask_obstacle] = 0
-        feq[:, mask_obstacle] = 0
+        # fp[:, mask_obstacle] = 0
+        # feq[:, mask_obstacle] = 0
 
         # Do collision
         f = fp + -(fp - feq) / tau
@@ -158,16 +171,17 @@ def main(Nt=1_000_000, tsave=20, debug=True):
             test_fields(f, feq, rho, ux, uy)
             it = t // tsave
             ts[it] = t
-            uxmax[it] = np.max(ux)
+            uxmax[it] = np.max(rho)
             m[it] = rho.sum()
 
             # Save velocity profile as an image
-            # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
+            visualization.show_field(ux, mask=mask_obstacle, title=f"t = {t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
-            visualization._show_streamlines(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle)
+            # visualization._show_streamlines(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle)
+            # visualization._show_streamlines(ux, uy, v=rho, mask=mask_obstacle)
             plt.show()
-            # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
+            # visualization.save_field_as_image(uy, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
         # Make sure mass is conserved at every timestep. Due to floating point (in)accuracy, we do need to round

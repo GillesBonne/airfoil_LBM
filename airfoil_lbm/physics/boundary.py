@@ -3,6 +3,20 @@ import numpy as np
 
 import mask.obstacles
 
+import matplotlib.pyplot as plt
+
+ex = np.array([0, 1, 0, -1, 0, 1, -1, -1, 1])
+ey = np.array([0, 0, 1, 0, -1, 1, 1, -1, -1])
+
+
+def show(f, i=5):
+    if len(f.shape) == 3:
+        f = f[i]
+        print(f"(ex, ey) = ({ex[i]},{ey[i]})")
+    plt.matshow(f.T, origin='lower')
+    plt.colorbar()
+    plt.show()
+
 
 @numba.jit(nopython=True, cache=True)
 def apply_periodic_boundary(field, left_right=True, top_bottom=True):
@@ -54,6 +68,34 @@ def bounce_back(field, mask, opp):
         for i, j in zip(x, y):
             field[k, i, j] = f2[opp[k], i, j]
     # field[:, mask] = f2[opp, mask]
+    return field
+
+
+# @numba.jit
+def bounce_back2(field, field_prev, mask, x_mask, x_minus_ck_mask, q, opp):
+    """
+    Implementation of the bounce-back scheme described by Bouzidi et al, 2001.
+    Note that the parameters x_mask, x_minus_ck_mask, q should be acquired by calling prepare_bounceback_interpolated
+    in the initialization of the program. Should be called after the propagation step.
+    :param field: the field at timestep t + dt
+    :param field_prev: the field at timestep t
+    :param mask: the obstacle mask
+    :param x_mask: describes the points that would be taken into the obstacle mask by vector c_i
+    :param x_minus_ck_mask: x_mask, but propagated backwards in time
+    :param q: the ratio of the boundary position along c_i and |c_i|
+    :param opp: an array of indices that reverses the direction of e_(x,y)
+    :return: the corrected field
+    # """
+    # field_prev[5, 19, 19] = 0.03
+    # field[x_mask] = field_prev[x_mask[opp]]
+    # show(field_prev)
+    # show(field)
+    for i, x, y in zip(*np.nonzero(x_mask)):
+        field[i, x, y] = field_prev[opp[i], x, y]
+    # field[:, mask] = field[opp][:, mask]
+    # field[x_mask[opp]] = field_prev[x_mask]
+    # field[:, mask] = 0
+
     return field
 
 

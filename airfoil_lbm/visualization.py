@@ -27,6 +27,7 @@ def save_field_as_image(v, mask=None, filename="output"):
     """
     _plot_field(v, mask=mask, title=filename)
     plt.savefig(f"../output/{filename}.png", dpi=300)
+    plt.close()
 
 
 def save_streamlines_as_image(vx, vy, v=None, mask=None, title=None, filename="output"):
@@ -90,6 +91,7 @@ def _plot_field(v, fig=None, ax=None, mask=None, title=None):
 
     im = ax.imshow(vprime.T, cmap=palette, origin='lower')
     fig.colorbar(im)
+    fig.suptitle(title)
 
 
 def _show_streamlines(vx, vy, v=None,
