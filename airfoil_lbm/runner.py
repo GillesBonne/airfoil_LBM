@@ -38,7 +38,7 @@ def get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_matrix=None) -
 def test_fields(f, feq, rho, ux, uy, mask_obstacle):
     u = np.sqrt(ux ** 2 + uy ** 2)
 
-    fields = [(rho, "rho"), (rho*u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
+    fields = [(rho, "rho"), (rho * u, "p"), (u, "u"), (ux, "ux"), (uy, "uy")]
 
     if np.any(mask_obstacle):
         print("Testing values inside the mask")
@@ -52,7 +52,8 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil, angle=None, thickness=None):
+def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil,
+        angle=None, thickness=None):
     if circle and airfoil:
         raise ValueError('Choose either a circle or airfoil obstacle.')
     elif simple_bounce and interp_bounce:
@@ -197,11 +198,11 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
             ts[it] = t
             uxmax[it] = np.max(ux)
             if periodic_x and periodic_y:
-                m[it] = rho[1:Nx+1, 1:Ny+1].sum()
+                m[it] = rho[1:Nx + 1, 1:Ny + 1].sum()
             elif periodic_x:
-                m[it] = rho[1:Nx+1, :].sum()
+                m[it] = rho[1:Nx + 1, :].sum()
             elif periodic_y:
-                m[it] = rho[:, 1:Ny+1].sum()
+                m[it] = rho[:, 1:Ny + 1].sum()
             else:
                 m[it] = rho.sum()
 
