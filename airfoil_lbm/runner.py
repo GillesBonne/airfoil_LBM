@@ -54,10 +54,8 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, shape):
-    if simple_bounce and interp_bounce:
-        raise ValueError(
-            'Choose either the simple bounce back scheme or using interpolated boundaries.')
+def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
+        boundary_scheme=boundary.bounce_back_simple, shape=None):
 
     # Get lattice parameters
     lattice_configuration = lattice.D2Q9
@@ -186,6 +184,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
 
         # Do collision
         f = fp + -(fp - feq) / tau
+        if shape is not None:
+            boundary_scheme(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
 
         if t % tsave == 0:
             test_fields(f, feq, rho, ux, uy, mask_obstacle)
@@ -237,4 +237,6 @@ if __name__ == "__main__":
     # shape = obstacles.Circle(size_fraction=size_fraction)
     shape = obstacles.AirfoilNaca00xx(angle=20, thickness=0.2, size_fraction=size_fraction)
 
-    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce=True, interp_bounce=False, shape=shape)
+    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
+        boundary_scheme=boundary.bounce_back_simple,
+        shape=shape)
