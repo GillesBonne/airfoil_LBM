@@ -53,7 +53,7 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
 
 
 def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil, angle=None, thickness=None):
-    if circle and naca:
+    if circle and airfoil:
         raise ValueError('Choose either a circle or airfoil obstacle.')
     elif simple_bounce and interp_bounce:
         raise ValueError(
@@ -103,11 +103,10 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         mask_obstacle = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
         subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
 
-        if interp_bounce:
-            x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
-                e, opp, shape, subdomain)
-            x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
-                                               for a in (x_mask, x_minus_ck_mask, q_mask)]
+        x_mask, x_minus_ck_mask, q_mask = boundary.prepare_bounceback_interpolated(
+            e, opp, shape, subdomain)
+        x_mask, x_minus_ck_mask, q_mask = [shape.fill_domain_from_subdomain(a, [q, *dims], **my_domain_params)
+                                           for a in (x_mask, x_minus_ck_mask, q_mask)]
     else:
         mask_obstacle = np.zeros(dims, dtype=bool)
 
@@ -151,7 +150,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
 
         if circle or airfoil:
             if simple_bounce:
-                fp = boundary.bounce_back(fp, mask_obstacle, opp)
+                fp = boundary.bounce_back_simple(
+                    fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
             elif interp_bounce:
                 fp = boundary.bounce_back_interpolated(
                     fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
@@ -199,7 +199,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
                 m[it] = rho.sum()
 
             # Save velocity profile as an image
-            # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
+            visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
             # visualization._show_streamlines(ux, uy, v=np.sqrt(
@@ -226,9 +226,9 @@ if __name__ == "__main__":
     Re = 20  # Reynolds number
     Nx = 700  # Lattice points in x-direction
     Ny = 200  # Lattice points in y-direction
-    tau = 10  # relaxation parameter
+    tau = 1  # relaxation parameter
     periodic_x = False
     periodic_y = False
     run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         simple_bounce=True, interp_bounce=False,
-        circle=False, airfoil=True, angle=10, thickness=0.2)
+        circle=True, airfoil=False, angle=10, thickness=0.2)

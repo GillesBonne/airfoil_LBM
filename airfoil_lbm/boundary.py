@@ -64,23 +64,25 @@ def set_boundary_macro(mask, field, value):
         #     field[i_f][i, j] = value[i_f]
 
 
-@numba.jit(nopython=True, cache=True)
-def bounce_back(field, mask, opp):
+@numba.jit
+def bounce_back_simple(field, field_prev, mask, x_mask, x_minus_ck_mask, q, opp):
     """
-    Ordinary bounce-back implementation. Should be called before the propagation step.
-    :param field:
-    :param mask:
-    :param opp:
-    :return:
+    Ordinary bounce-back scheme (Half-way BB)
+    Note that the parameters x_mask, x_minus_ck_mask, q should be acquired by calling prepare_bounceback_interpolated
+    in the initialization of the program. Should be called after the propagation step.
+    :param field: the field at timestep t + dt
+    :param field_prev: the field at timestep t
+    :param mask: the obstacle mask
+    :param x_mask: describes the points that would be taken into the obstacle mask by vector c_i
+    :param x_minus_ck_mask: x_mask, but propagated backwards in time
+    :param q: the ratio of the boundary position along c_i and |c_i|
+    :param opp: an array of indices that reverses the direction of e_(x,y)
+    :return: the corrected field
     """
-    q = len(opp)
-    # Bounce back
-    f2 = field.copy()
-    for k in range(q):
-        x, y = np.nonzero(mask)
-        for i, j in zip(x, y):
-            field[k, i, j] = f2[opp[k], i, j]
-    # field[:, mask] = f2[opp, mask]
+    # Loop over all True nodes in x_mask (i.e. nodes that would take a node from the liquid domain to the solid domain
+    for i, x, y in zip(*np.nonzero(x_mask)):
+        field[opp[i], x, y] = field_prev[i, x, y]
+
     return field
 
 

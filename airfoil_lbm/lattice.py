@@ -7,9 +7,9 @@ def opp(e):
     :param e: a DxQ numpy array of velocity vectors
     :return: a list of indices
     """
-    opp = []
+    opp = np.zeros(e.shape[0], dtype=int)
     for i in range(e.shape[0]):
-        opp.append(np.where(np.all(e == -e[i, :], axis=1))[0][0])
+        opp[i] = np.where(np.all(e == -e[i, :], axis=1))[0][0]
     return opp
 
 
