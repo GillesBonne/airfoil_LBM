@@ -54,11 +54,8 @@ def test_fields(f, feq, rho, ux, uy, mask_obstacle):
                f"{name:>3s}_min = {field[~mask_obstacle].min():>12.8f}"))
 
 
-def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, circle, airfoil,
-        angle=None, thickness=None):
-    if circle and airfoil:
-        raise ValueError('Choose either a circle or airfoil obstacle.')
-    elif simple_bounce and interp_bounce:
+def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce, interp_bounce, shape):
+    if simple_bounce and interp_bounce:
         raise ValueError(
             'Choose either the simple bounce back scheme or using interpolated boundaries.')
 
@@ -74,11 +71,15 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     obstacle_r = Ny   # radius of the cylinder
     my_domain_params = {'x_size': obstacle_r,
                         'y_size': obstacle_r,
-                        'x_center': 0.2,
+                        'x_center': 0.3,
                         'y_center': 0.5}
 
     U_inf = 0.04
-    nu = lattice.calculate_nu(L=obstacle_r / 9, u_inf=U_inf, Re=Re)
+    if shape is not None:
+        L = obstacle_r * shape.size_fraction
+    else:
+        L = Ny
+    nu = lattice.calculate_nu(L=L, u_inf=U_inf, Re=Re)
     # U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
 
     tau = 3 * nu + 0.5
@@ -101,15 +102,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     mask_boundary = boundary.get_boundary_mask(
         np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
-    if circle:
-        shape = obstacles.Circle(size_fraction=2/9)
-    elif airfoil:
-        if angle is not None and thickness is not None:
-            shape = obstacles.AirfoilNaca00xx(angle=angle, thickness=thickness)
-        else:
-            raise ValueError('Naca airfoil properties not specified.')
-
-    if circle or airfoil:
+    if shape is not None:
         mask_obstacle = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
         subdomain = shape.get_subdomain_from_domain(np.zeros(dims), **my_domain_params)
 
@@ -239,6 +232,9 @@ if __name__ == "__main__":
     tau = 1  # relaxation parameter
     periodic_x = False
     periodic_y = False
-    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
-        simple_bounce=True, interp_bounce=False,
-        circle=True, airfoil=False, angle=10, thickness=0.2)
+
+    size_fraction = 1/4
+    # shape = obstacles.Circle(size_fraction=size_fraction)
+    shape = obstacles.AirfoilNaca00xx(angle=20, thickness=0.2, size_fraction=size_fraction)
+
+    run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce=True, interp_bounce=False, shape=shape)
