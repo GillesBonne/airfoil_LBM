@@ -232,8 +232,8 @@ class Square(Shape):
 
 
 class AirfoilNaca00xx(Shape):
-    def __init__(self, angle, thickness, *args):
-        super().__init__(*args)
+    def __init__(self, angle, thickness, **kwargs):
+        super().__init__(**kwargs)
         self.angle = angle
         self.thickness = thickness
 
