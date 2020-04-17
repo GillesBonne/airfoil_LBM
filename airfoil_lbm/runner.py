@@ -207,7 +207,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
                 m[it] = rho.sum()
 
             # Save velocity profile as an image
-            visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
+            visualization.show_field(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
             # visualization._show_streamlines(ux, uy, v=np.sqrt(
