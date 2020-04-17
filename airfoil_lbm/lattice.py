@@ -34,7 +34,12 @@ def D2Q9():
     return q, e, e_opposite, ex, ey, w
 
 
+def calculate_nu(L, u_inf, Re=120):
+    nu_lb = u_inf * L / Re
+    return nu_lb
+
+
 def calculate_u_inf(L, Re, tau):
-    nu = (tau-1/2)/3
+    nu = (tau - 1 / 2) / 3
     u = Re * nu / L
     return u

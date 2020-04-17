@@ -64,24 +64,27 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     q, e, opp, ex, ey, w = lattice_configuration()
 
     # Obstacle information
-    obstacle_r = Ny // 4  # radius of the cylinder
+    obstacle_r = Ny   # radius of the cylinder
     my_domain_params = {'x_size': obstacle_r,
                         'y_size': obstacle_r,
                         'x_center': 0.2,
                         'y_center': 0.5}
 
-    U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
+    U_inf = 0.04
+    nu = lattice.calculate_nu(L=obstacle_r / 9, u_inf=U_inf, Re=Re)
+    # U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
 
+    tau = 3 * nu + 0.5
     # kinematic viscosity
-    nu = (1.0 / 3.0) * (tau - 0.5)
+    # nu = (1.0 / 3.0) * (tau - 0.5)
     omega = tau ** -1
 
     print(f"# Parameters")
-    print(f"tau = {tau:.2f}")
-    print(f"omega = {omega:.2f}")
-    print(f"Re = {Re:.2f}")
-    print(f"U_inf = {U_inf:.2f}")
-    print(f"nu = {nu:.2f}")
+    print(f"tau = {tau:.4f}")
+    print(f"omega = {omega:.4f}")
+    print(f"Re = {Re:.4f}")
+    # print(f"U_inf = {U_inf:.2f}")
+    print(f"nu = {nu:.4f}")
     print("\n")
 
     periodic = periodic_x or periodic_y
@@ -92,7 +95,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
 
     if circle:
-        shape = obstacles.Circle(size_fraction=0.9)
+        shape = obstacles.Circle(size_fraction=2/9)
     elif airfoil:
         if angle is not None and thickness is not None:
             shape = obstacles.AirfoilNaca00xx(angle=angle, thickness=thickness)
