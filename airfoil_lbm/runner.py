@@ -63,6 +63,10 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     lattice_configuration = lattice.D2Q9
     q, e, opp, ex, ey, w = lattice_configuration()
 
+    e_plus_x = np.arange(q)[np.asarray([ei[0] > 0 for ei in e])]
+    e_0_x = np.arange(q)[np.asarray([ei[0] > 0 for ei in e])]
+    e_min_x = np.arange(q)[np.asarray([ei[0] < 0 for ei in e])]
+
     # Obstacle information
     obstacle_r = Ny   # radius of the cylinder
     my_domain_params = {'x_size': obstacle_r,
