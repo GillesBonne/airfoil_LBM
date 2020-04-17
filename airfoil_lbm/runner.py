@@ -18,13 +18,15 @@ def get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_matrix=None) -
     u0 = U_inf
     rho = np.ones(ux.shape)
 
+    Ny = dims[1]
     # Start with a uniform initial velocity distribution
     ux = np.broadcast_to(u0, dims).copy()
+    ux += u0 * 0.1 * np.sin(2 * np.pi * np.arange(Ny) / Ny)
 
-    if mask_matrix is not None:
-        # Set velocity to zero within the boundary
-        ux[mask_matrix] = 0
-        uy[mask_matrix] = 0
+    # if mask_matrix is not None:
+    #     # Set velocity to zero within the boundary
+    #     ux[mask_matrix] = 0
+    #     uy[mask_matrix] = 0
 
     feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
     if periodic:
