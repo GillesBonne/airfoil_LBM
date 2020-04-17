@@ -110,6 +110,10 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
     else:
         mask_obstacle = np.zeros(dims, dtype=bool)
 
+    # Poiseuille
+    mask_obstacle[:, 0] = True
+    mask_obstacle[:, -1] = True
+
     plt.matshow(mask_obstacle.T, origin='lower')
     plt.title("Obstacle mask")
     plt.show()
@@ -174,7 +178,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
         # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
-        boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
+        # boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
+        ux[0, 1:-2] = U_inf
 
         # Calculate feq
         feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
@@ -199,7 +204,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
                 m[it] = rho.sum()
 
             # Save velocity profile as an image
-            visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
+            # visualization.show_field(ux, mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
             # visualization._show_streamlines(ux, uy, v=np.sqrt(
@@ -213,14 +218,13 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y, simple_bounce
         # assert rho.round().sum() == els, f"Time = {t}, {rho.sum()}=/={els}"
     # visualization.save_field_as_image(ux)
     visualization.plot_2d(uxmax)
-    plt.plot(ts, fx)
     plt.show()
-    plt.plot(ts, fy)
+    visualization._show_streamlines(ux, uy, v=ux, mask=mask_obstacle)
     plt.show()
 
 
 if __name__ == "__main__":
-    Nt = 1_000
+    Nt = 100
     tsave = 20
     debug = True
     Re = 20  # Reynolds number
@@ -231,4 +235,4 @@ if __name__ == "__main__":
     periodic_y = False
     run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         simple_bounce=True, interp_bounce=False,
-        circle=True, airfoil=False, angle=10, thickness=0.2)
+        circle=False, airfoil=False)
