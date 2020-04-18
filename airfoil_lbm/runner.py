@@ -77,7 +77,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         L = obstacle_r * shape.size_fraction
     else:
         L = Ny
-    nu = lattice.calculate_nu(L=L, u_inf=U_inf, Re=Re)
+    nu = lattice.calculate_nu(L=L/2, u_inf=U_inf, Re=Re)
     # U_inf = lattice.calculate_u_inf(L=1 / 2 * obstacle_r, Re=Re, tau=tau)
 
     tau = 3 * nu + 0.5
@@ -98,7 +98,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
     dims = np.array([Nx, Ny]) + np.array([2 * periodic_x, 2 * periodic_y])
 
     mask_boundary = boundary.get_boundary_mask(
-        np.zeros(dims), inlet=True, outlet=False, top=True, bottom=True)
+        np.zeros(dims), inlet=True, outlet=False, top=False, bottom=False)
 
     if shape is not None:
         mask_obstacle = shape.place_on_domain(np.zeros(dims, dtype=np.bool), **my_domain_params)
@@ -135,29 +135,12 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         print(f"Doing {Nt} timesteps")
 
     for t in range(Nt):
+
         if debug and t % tsave == 0:
             print(f"\n# t = {t}")
 
         # Restrict flow velocity ux < 0 at the outlet
         fp[e_min_x, -1, :] = fp[e_min_x, -2, :]
-
-        # Do streaming: calculating the densities and velocities after a timestep dt
-        # Store them into fp (fprime, f')
-        for k in range(q):
-            fp[k, :, :] = np.roll(f[k, :, :], (ey[k], ex[k]), axis=(1, 0))
-        if periodic:
-            fp = boundary.apply_periodic_boundary(
-                fp, left_right=periodic_x, top_bottom=periodic_y)
-
-        if circle or airfoil:
-            if simple_bounce:
-                fp = boundary.bounce_back_simple(
-                    fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
-            elif interp_bounce:
-                fp = boundary.bounce_back_interpolated(
-                    fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
-            else:
-                raise ValueError('Choose which bounce back scheme to use.')
 
         # Calculate macros
         rho, ux, uy = lbm.calculate_macros(fp, ex, ey)
@@ -165,25 +148,32 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         # Force calculation.
         if t % tsave == 0:
             it = t // tsave
-            if simple_bounce:
-                fx[it] = 2*ux[mask_obstacle].sum()
-                fy[it] = 2*uy[mask_obstacle].sum()
-            else:
-                fx = None
-                fy = None
+            fx[it] = 2 * ux[mask_obstacle].sum()
+            fy[it] = 2 * uy[mask_obstacle].sum()
 
         # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
-        # boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
-        boundary.set_boundary_macro(mask_boundary, (ux,), (U_inf,))
+        boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
+
+        # rho[mask_boundary] =
 
         # Calculate feq
         feq = lbm.equilibrium(rho, ux, uy, ex, ey, w)
         fp[:, mask_obstacle] = 0
         feq[:, mask_obstacle] = 0
 
+
         # Do collision
         f = fp + -(fp - feq) / tau
+        f[:, mask_boundary] = feq[:, mask_boundary]
+        # fp[i3, 0, :] = fp[i1, 0, :] + feq[i3, 0, :] - fp[i1, 0, :]
+
+
+        # Do streaming: calculating the densities and velocities after a timestep dt
+        # Store them into fp (fprime, f')
+        for k in range(q):
+            fp[k, :, :] = np.roll(f[k, :, :], (ex[k], ey[k]), axis=(0, 1))
+
         if shape is not None:
             boundary_scheme(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
 
@@ -202,12 +192,13 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
                 m[it] = rho.sum()
 
             # Save velocity profile as an image
-            visualization.show_field(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, title=f"velx/{t:d}")
+            # visualization.show_field(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
             #                                         filename=f"vel/{t // tsave:08d}")
             # visualization._show_streamlines(ux, uy, v=np.sqrt(
             #     ux ** 2 + uy ** 2), mask=mask_obstacle)
             # plt.show()
+            visualization.save_field_as_image(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, filename=f"vel/{t//tsave:08d}")
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
@@ -233,7 +224,7 @@ if __name__ == "__main__":
     periodic_x = False
     periodic_y = False
 
-    size_fraction = 1/4
+    size_fraction = 1/3
     # shape = obstacles.Circle(size_fraction=size_fraction)
     shape = obstacles.AirfoilNaca00xx(angle=20, thickness=0.2, size_fraction=size_fraction)
 
