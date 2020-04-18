@@ -145,12 +145,6 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         # Calculate macros
         rho, ux, uy = lbm.calculate_macros(fp, ex, ey)
 
-        # Force calculation.
-        if t % tsave == 0:
-            it = t // tsave
-            fx[it] = 2 * ux[mask_obstacle].sum()
-            fy[it] = 2 * uy[mask_obstacle].sum()
-
         # Set velocities within the obstacle to zero
         boundary.set_boundary_macro(mask_obstacle, (rho, ux, uy), (0, 0, 0))
         boundary.set_boundary_macro(mask_boundary, (ux, uy), (U_inf, 0))
@@ -175,7 +169,18 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
             fp[k, :, :] = np.roll(f[k, :, :], (ex[k], ey[k]), axis=(0, 1))
 
         if shape is not None:
-            boundary_scheme(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+            fp = boundary_scheme(fp, f, mask_obstacle, x_mask, x_minus_ck_mask, q_mask, opp)
+
+            # Force calculation.
+            if t % tsave == 0:
+                it = t // tsave
+
+                # Sum over the whole solid
+                ftot_i = np.zeros((q))
+                for i in range(q):
+                    ftot_i[i] = (f[i, x_mask[i]] + fp[opp[i], x_mask[i]]).sum()
+
+                fx[it], fy[it] = (ftot_i * e.T).sum(axis=1)
 
         if t % tsave == 0:
             test_fields(f, feq, rho, ux, uy, mask_obstacle)
@@ -191,6 +196,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
             else:
                 m[it] = rho.sum()
 
+            visualization.plot_2d(fx[5:it])
             # Save velocity profile as an image
             # visualization.show_field(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, title=f"velx/{t:d}")
             # visualization.save_streamlines_as_image(ux, uy, v=np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle,
@@ -198,7 +204,7 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
             # visualization._show_streamlines(ux, uy, v=np.sqrt(
             #     ux ** 2 + uy ** 2), mask=mask_obstacle)
             # plt.show()
-            visualization.save_field_as_image(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, filename=f"vel/{t//tsave:08d}")
+            # visualization.save_field_as_image(np.sqrt(ux ** 2 + uy ** 2), mask=mask_obstacle, filename=f"vel/{t//tsave:08d}")
             # visualization.save_field_as_image(ux, mask=mask_obstacle, filename=f"velx/{t//tsave:08d}")
             # visualization.save_field_as_image(uy, filename=f"vely/{t:d}")
 
@@ -226,7 +232,7 @@ if __name__ == "__main__":
 
     size_fraction = 1/3
     # shape = obstacles.Circle(size_fraction=size_fraction)
-    shape = obstacles.AirfoilNaca00xx(angle=20, thickness=0.2, size_fraction=size_fraction)
+    shape = obstacles.AirfoilNaca00xx(angle=18, thickness=0.2, size_fraction=size_fraction)
 
     run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
         boundary_scheme=boundary.bounce_back_simple,
