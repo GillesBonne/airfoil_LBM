@@ -9,6 +9,7 @@ import lattice
 import lbm
 import obstacles
 import visualization
+import result
 
 
 def get_initial_conditions(dims, U_inf, ex, ey, w, periodic, mask_matrix=None) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -217,6 +218,8 @@ def run(Nt, tsave, debug, Re, Nx, Ny, tau, periodic_x, periodic_y,
     plt.show()
     plt.plot(ts, fy)
     plt.show()
+
+    return result.SimulationResult(fp, rho, ux, uy, m, fx, fy)
 
 
 if __name__ == "__main__":
