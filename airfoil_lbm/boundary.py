@@ -129,14 +129,15 @@ def bounce_back_interpolated(field, field_prev, mask, x_mask, x_minus_ck_mask, q
     q_masked = q[x_mask]
 
     # Bouzidi scheme, piecewise for q>1/2 and q<=1/2
-    qplus = 2 * q_masked * field_prev[x_mask] \
+    qminus = 2 * q_masked * field_prev[x_mask] \
         + (1 - 2 * q_masked) * field_prev[x_minus_ck_mask]
-    qminus = 1 / (2 * q_masked) * field_prev[x_mask] \
+    qplus = 1 / (2 * q_masked) * field_prev[x_mask] \
         + (2 * q_masked - 1) / (2 * q_masked) * field_prev[x_mask[opp]]
 
     # For q_masked = 1/2, this should yield the same result as the ordinary bounce-back
     # q_masked[:] = 1/2
-    field[opp][x_mask] = qplus * (q_masked < 1 / 2) \
-        + qminus * (q_masked >= 1 / 2)
+    for i in range(x_mask.shape[0]):
+        field[x_mask[opp]] = qplus * (q_masked >= 1 / 2) \
+        + qminus * (q_masked < 1 / 2)
 
     return field
