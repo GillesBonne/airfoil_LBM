@@ -56,12 +56,12 @@ def apply_periodic_boundary(field, left_right=True, top_bottom=True):
 def set_boundary_macro(mask, field, value):
     for i_f, f in enumerate(field):
         # For non-numba, this is faster:
-        f[mask] = value[i_f]
+        # f[mask] = value[i_f]
 
         # For numba (which doesn't support boolean masking), use this
-        # x, y = np.nonzero(mask)
-        # for i, j in zip(x, y):
-        #     field[i_f][i, j] = value[i_f]
+        x, y = np.nonzero(mask)
+        for i, j in zip(x, y):
+            f[i, j] = value[i_f]
 
 
 @numba.jit
