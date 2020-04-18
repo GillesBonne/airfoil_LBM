@@ -10,8 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 palette: matplotlib.colors.LinearSegmentedColormap
-# palette = copy.copy(matplotlib.cm.inferno)
-palette = copy.copy(matplotlib.cm.Blues)
+palette = copy.copy(matplotlib.cm.inferno)
+# palette = copy.copy(matplotlib.cm.Blues)
 palette.set_bad('#666')
 
 
